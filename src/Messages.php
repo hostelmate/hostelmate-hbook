@@ -62,6 +62,7 @@ final class Messages {
 	public const SYNC_NO_CHANGE    = 'sync_no_change';
 	public const SYNC_APPLIED      = 'sync_applied';
 	public const PREVIEW_READY     = 'preview_ready';
+	public const PREVIEW_LARGE     = 'preview_large';
 	public const SYNC_BUSY         = 'sync_busy';
 	public const SYNC_LATE         = 'sync_late';
 	public const SYNC_VERY_LATE    = 'sync_very_late';
@@ -85,6 +86,7 @@ final class Messages {
 	public const BOOKING_NO_EMAIL  = 'booking_no_email';
 	public const BOOKING_UNMATCHED = 'booking_unmatched';
 	public const BOOKING_TOO_LONG  = 'booking_too_long';
+	public const BOOKING_NO_SOURCE = 'booking_no_source';
 
 	// Check before booking.
 	public const GUEST_JUST_BOOKED = 'guest_just_booked';
@@ -267,6 +269,8 @@ final class Messages {
 				return __( 'Prices and dates updated from HostelMate.', 'hostelmate-hbook' );
 			case self::PREVIEW_READY:
 				return __( 'Preview updated: see what would change below.', 'hostelmate-hbook' );
+			case self::PREVIEW_LARGE:
+				return __( 'This is a large change from what your website shows today. Going live applies it, because you have checked it here. After that, a change this large waits for your OK.', 'hostelmate-hbook' );
 			case self::SYNC_LATE:
 				return __( 'HostelMate hasn\'t been checked for over 20 minutes. WordPress runs its timers only when someone visits: add a server cron job (see Settings).', 'hostelmate-hbook' );
 			case self::SYNC_VERY_LATE:
@@ -303,6 +307,8 @@ final class Messages {
 				return __( 'The matched bed was taken in HostelMate, so HostelMate kept its own bed in the same room.', 'hostelmate-hbook' );
 			case self::BOOKING_NO_EMAIL:
 				return __( 'A website booking has no valid guest email, which HostelMate needs. Add it in HBook.', 'hostelmate-hbook' );
+			case self::BOOKING_NO_SOURCE:
+				return __( 'Your HostelMate property has no source called "Website", so website bookings are saved there as "ClientAPI". Add a source called Website in HostelMate to see them as website bookings.', 'hostelmate-hbook' );
 			case self::BOOKING_UNMATCHED:
 				return __( 'A website booking is on an HBook room that isn\'t matched to HostelMate, so HostelMate doesn\'t know about it. Match the room.', 'hostelmate-hbook' );
 			case self::BOOKING_TOO_LONG:

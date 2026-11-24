@@ -130,7 +130,8 @@ final class Mapping {
 		if ( '' === (string) $room['channel_id'] ) {
 			$out[] = self::issue( self::LEVEL_WARN, Messages::MAP_NO_CHANNEL_ID, $name );
 		}
-		if ( ( null !== $room['fake_capacity'] && 0 !== $room['fake_capacity'] ) || null !== $room['fake_max_available'] ) {
+		// HostelMate stores 0 for "not set" and applies neither number then (backend/api/helpers/availability_calc.py:159-163).
+		if ( ! in_array( $room['fake_capacity'], array( null, 0 ), true ) || ! in_array( $room['fake_max_available'], array( null, 0 ), true ) ) {
 			$out[] = self::issue( self::LEVEL_WARN, Messages::MAP_FAKE_NUMBERS, $name );
 		}
 		if ( true !== $room['active'] ) {

@@ -178,6 +178,17 @@ final class HostelMateClientTest extends TestCase {
 		$this->assertSame( 'unknown', Client::property()->code );
 	}
 
+	public function test_field_refusals_name_the_field(): void {
+		self::answer( 400, array( 'channel' => array( 'not one of this property\'s sources' ) ) );
+		$this->assertSame( 'invalid_channel', Client::property()->code );
+		self::answer( 400, array( 'Bad Field' => array( 'x' ) ) );
+		$this->assertSame( 'unknown', Client::property()->code );
+		self::answer( 400, array( 'channel' => 'not a list' ) );
+		$this->assertSame( 'unknown', Client::property()->code );
+		self::answer( 400, array( 'code' => 'availability_conflict', 'channel' => array( 'x' ) ) );
+		$this->assertSame( 'availability_conflict', Client::property()->code );
+	}
+
 	public function test_ok_status_with_a_wrong_body_is_invalid(): void {
 		self::answer( 200, array( 'hello' => 'world' ) );
 		$r = Client::property();

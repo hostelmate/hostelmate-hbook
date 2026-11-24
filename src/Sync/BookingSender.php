@@ -11,6 +11,7 @@ declare(strict_types=1);
 namespace HostelMate\HBook\Sync;
 
 use HostelMate\HBook\Config;
+use HostelMate\HBook\Core\Alerts;
 use HostelMate\HBook\Core\Ids;
 use HostelMate\HBook\Core\Log;
 use HostelMate\HBook\Core\Money;
@@ -152,6 +153,17 @@ final class BookingSender {
 			'channel' => self::str( $data, 'channel' ),
 		);
 		$result = Client::create_booking( $body, self::key( $sent, 'create', $body ) );
+		if ( Result::INVALID === $result->kind && 'invalid_channel' === $result->code ) {
+			// The property has no "Website" source (plan section 12). A label must never keep a booking out of
+			// HostelMate: send it without one (HostelMate files it under ClientAPI) and tell the owner.
+			unset( $body['channel'] );
+			$result = Client::create_booking( $body, self::key( $sent, 'create', $body ) );
+			if ( $result->is_ok() || Result::CONFLICT === $result->kind ) {
+				Alerts::open( Messages::BOOKING_NO_SOURCE, Config::ALERT_LEVEL_AMBER );
+			}
+		} elseif ( $result->is_ok() ) {
+			Alerts::resolve( Messages::BOOKING_NO_SOURCE );
+		}
 		if ( Result::CONFLICT === $result->kind && 'booking_id_conflict' === $result->code ) {
 			$found = Client::booking( $sent['uuid'] );
 			if ( ! $found->is_ok() ) {

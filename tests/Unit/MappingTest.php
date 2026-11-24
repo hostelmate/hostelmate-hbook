@@ -145,6 +145,17 @@ final class MappingTest extends TestCase {
 		$this->assertCount( 1, Mapping::get()[ self::DORM ] );
 	}
 
+	public function test_zero_fake_numbers_mean_not_set(): void {
+		$bed74 = self::bed( self::DORM, 74 );
+		$save  = static fn( array $property ): array => array_column( Mapping::save( array( self::DORM => array( array( 'accom' => 74, 'num' => 1, 'bed' => $bed74 ) ) ), $property, self::units() ), 'code' );
+		foreach ( array( array( 0, 0, false ), array( null, 0, false ), array( 0, null, false ), array( 2, 0, true ), array( 0, 4, true ), array( -1, null, true ) ) as list( $capacity, $max, $warned ) ) {
+			$property                                   = self::property();
+			$property['rooms'][1]['fake_capacity']      = $capacity;
+			$property['rooms'][1]['fake_max_available'] = $max;
+			$this->assertSame( $warned, in_array( Messages::MAP_FAKE_NUMBERS, $save( $property ), true ), "capacity $capacity, max $max" );
+		}
+	}
+
 	public function test_tampered_option_is_cleaned_on_read(): void {
 		\WpStub::$options[ Config::OPT_MAPPING ] = array(
 			'rooms' => array(

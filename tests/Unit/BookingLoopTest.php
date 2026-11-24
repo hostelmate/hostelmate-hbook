@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HostelMate\HBook\Tests\Unit;
 
+use HostelMate\HBook\Core\Alerts;
 use HostelMate\HBook\Core\Secret;
 use HostelMate\HBook\HBook\Bookings;
 use HostelMate\HBook\Messages;
@@ -215,6 +216,39 @@ final class BookingLoopTest extends TestCase {
 		$this->assertSame( BookingSender::REFUSED, $r['end'] );
 		$this->assertFalse( $r['sent']['created'] );
 		$this->assertCount( 1, \WpStub::$requests ); // Stopped at the first failure.
+	}
+
+	public function test_a_missing_website_source_never_keeps_a_booking_out(): void {
+		// Found live 2026-11-24: a property without a "Website" source refuses `channel` with a field error.
+		Secret::store( 'hmk_live_0123456789abcdefABCDEF' );
+		$plan           = BookingPlanner::plan( self::booking(), BookingPlanner::nothing_sent( self::UUID ), self::target(), false, self::METHODS );
+		\WpStub::$queue = array(
+			self::answer( 400, array( 'channel' => array( '"Website" is not one of this property\'s sources: ClientAPI, WalkIn.' ) ) ),
+			self::answer( 201, array( 'bookingId' => self::UUID, 'guest' => array( 'id' => self::GUEST ) ) ),
+			self::answer( 200, array( 'dates' => array() ) ),
+			self::answer( 200, array( 'bed' => self::BED ) ),
+		);
+		$r = BookingSender::send( 4662, BookingPlanner::nothing_sent( self::UUID ), $plan['ops'] );
+		$this->assertSame( BookingSender::DONE, $r['end'] );
+		$this->assertTrue( $r['sent']['created'] );
+		$this->assertStringContainsString( '"channel":"Website"', \WpStub::$requests[0]['args']['body'] );
+		$this->assertStringNotContainsString( '"channel"', \WpStub::$requests[1]['args']['body'] );
+		$this->assertNotSame( \WpStub::$requests[0]['args']['headers']['Idempotency-Key'], \WpStub::$requests[1]['args']['headers']['Idempotency-Key'] );
+		$this->assertContains( Messages::BOOKING_NO_SOURCE, array_column( Alerts::list(), 'code' ) );
+
+		// Once the owner adds the source, the next create with it clears the alert.
+		\WpStub::$requests = array();
+		\WpStub::$queue    = array( self::answer( 201, array( 'bookingId' => self::UUID, 'guest' => array( 'id' => self::GUEST ) ) ), self::answer( 200, array() ), self::answer( 200, array() ) );
+		BookingSender::send( 4663, BookingPlanner::nothing_sent( self::UUID ), $plan['ops'] );
+		$this->assertNotContains( Messages::BOOKING_NO_SOURCE, array_column( Alerts::list(), 'code' ) );
+
+		// Any other refusal is not retried.
+		\WpStub::$requests = array();
+		\WpStub::$queue    = array( self::answer( 400, array( 'guest' => array( 'bad email' ) ) ) );
+		$r = BookingSender::send( 4664, BookingPlanner::nothing_sent( self::UUID ), $plan['ops'] );
+		$this->assertSame( BookingSender::INVALID, $r['end'] );
+		$this->assertSame( 'create:invalid:invalid_guest', $r['code'] );
+		$this->assertCount( 1, \WpStub::$requests );
 	}
 
 	public function test_sender_never_sends_a_payment_twice(): void {

@@ -109,7 +109,7 @@ final class BookingRunner {
 				continue; // Waiting for the booking to change in HBook.
 			}
 			$sent = null === $row ? BookingPlanner::nothing_sent( \HostelMate\HBook\Core\Ids::uuid4() ) : $row['sent'];
-			$plan = BookingPlanner::plan( $booking, $sent, null === $booking ? null : ( $targets[ $booking['accom_id'] . ':' . $booking['accom_num'] ] ?? null ), $paid, $methods, $today );
+			$plan = BookingPlanner::plan( $booking, $sent, self::target( $targets, $booking ), $paid, $methods, $today );
 			if ( array() === $plan['ops'] && '' === $plan['problem'] ) {
 				if ( null !== $row && BookingStore::SYNCED !== $row['state'] ) {
 					self::save( $id, $sent, BookingStore::SYNCED, 0, 0, '', $booking );
@@ -130,7 +130,7 @@ final class BookingRunner {
 			$fresh = BookingStore::all()[ $id ]['sent'];
 			if ( ! $fresh['created'] && $fresh['uuid'] !== $sent['uuid'] ) {
 				$sent = $fresh;
-				$plan = BookingPlanner::plan( $booking, $sent, null === $booking ? null : ( $targets[ $booking['accom_id'] . ':' . $booking['accom_num'] ] ?? null ), $paid, $methods, $today );
+				$plan = BookingPlanner::plan( $booking, $sent, self::target( $targets, $booking ), $paid, $methods, $today );
 			}
 			$result = BookingSender::send( $id, $sent, $plan['ops'] );
 			++$touched;
@@ -223,7 +223,7 @@ final class BookingRunner {
 	 *
 	 * @return array<string, array{room: string, bed: string}>
 	 */
-	private static function targets(): array {
+	public static function targets(): array {
 		$out = array();
 		foreach ( Mapping::get() as $room => $list ) {
 			foreach ( $list as $u ) {
@@ -234,6 +234,17 @@ final class BookingRunner {
 			}
 		}
 		return $out;
+	}
+
+	/**
+	 * The HostelMate room and bed a website booking goes to, or null when its HBook room isn't matched.
+	 *
+	 * @param array<string, array{room: string, bed: string}> $targets From targets().
+	 * @param Booking|null                                    $booking The booking.
+	 * @return array{room: string, bed: string}|null
+	 */
+	public static function target( array $targets, ?array $booking ): ?array {
+		return null === $booking ? null : ( $targets[ $booking['accom_id'] . ':' . $booking['accom_num'] ] ?? null );
 	}
 
 	/**

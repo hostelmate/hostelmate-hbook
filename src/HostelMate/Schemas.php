@@ -31,13 +31,21 @@ final class Schemas {
 	private const MAX_STAY      = 10000;
 
 	/**
-	 * HostelMate's error code from an error body, or 'unknown'.
+	 * HostelMate's error code from an error body; 'invalid_<field>' for a field refusal
+	 * ({"channel": ["…"]}, the client API serializers' own shape); 'unknown' otherwise.
 	 *
 	 * @param array<mixed> $data Decoded body.
 	 */
 	public static function error_code( array $data ): string {
 		$code = $data['code'] ?? null;
-		return ( is_string( $code ) && 1 === preg_match( '/^[a-z][a-z0-9_]{0,63}\z/', $code ) ) ? $code : 'unknown';
+		if ( is_string( $code ) && 1 === preg_match( '/^[a-z][a-z0-9_]{0,63}\z/', $code ) ) {
+			return $code;
+		}
+		$field = array_key_first( $data );
+		if ( null === $code && is_string( $field ) && 1 === preg_match( '/^[a-z][a-z0-9_]{0,55}\z/', $field ) && is_array( $data[ $field ] ) ) {
+			return 'invalid_' . $field;
+		}
+		return 'unknown';
 	}
 
 	/**

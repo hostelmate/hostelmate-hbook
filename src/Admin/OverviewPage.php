@@ -17,6 +17,7 @@ use HostelMate\HBook\Core\State;
 use HostelMate\HBook\HBook\Options;
 use HostelMate\HBook\HBook\Tools;
 use HostelMate\HBook\HBook\Units;
+use HostelMate\HBook\Sync\BookingRunner;
 use HostelMate\HBook\Sync\GoLive;
 use HostelMate\HBook\Messages;
 
@@ -67,13 +68,24 @@ final class OverviewPage {
 		if ( Config::MODE_LIVE === Settings::mode() ) {
 			return;
 		}
-		$today = \HostelMate\HBook\Core\Clock::today( \HostelMate\HBook\Core\Clock::site_zone() );
-		$rows  = array();
+		$today     = \HostelMate\HBook\Core\Clock::today( \HostelMate\HBook\Core\Clock::site_zone() );
+		$targets   = BookingRunner::targets();
+		$rows      = array();
+		$unmatched = 0;
 		foreach ( \HostelMate\HBook\HBook\Bookings::website_since( $today ) as $b ) {
 			$wanted = \HostelMate\HBook\Sync\StatusRules::wanted( $b['status'], false );
-			if ( $b['check_out'] > $today && in_array( $wanted, array( \HostelMate\HBook\Sync\StatusRules::RESERVED, \HostelMate\HBook\Sync\StatusRules::CONFIRMED ), true ) ) {
-				$rows[] = array( '#' . $b['number'], $b['check_in'], $b['check_out'], $wanted );
+			if ( $b['check_out'] <= $today || ! in_array( $wanted, array( \HostelMate\HBook\Sync\StatusRules::RESERVED, \HostelMate\HBook\Sync\StatusRules::CONFIRMED ), true ) ) {
+				continue;
 			}
+			if ( null === BookingRunner::target( $targets, $b ) ) {
+				++$unmatched;
+				continue;
+			}
+			$rows[] = array( '#' . $b['number'], $b['check_in'], $b['check_out'], $wanted );
+		}
+		if ( $unmatched > 0 ) {
+			/* translators: %d: number of bookings */
+			View::notice( 'warning', sprintf( _n( '%d website booking is on an HBook room that isn\'t matched to HostelMate, so HostelMate won\'t get it. Match the room.', '%d website bookings are on HBook rooms that aren\'t matched to HostelMate, so HostelMate won\'t get them. Match the rooms.', $unmatched, 'hostelmate-hbook' ), $unmatched ) );
 		}
 		self::table(
 			/* translators: %d: number of bookings */
@@ -230,9 +242,11 @@ final class OverviewPage {
 			array( __( 'Night', 'hostelmate-hbook' ), __( 'HostelMate room', 'hostelmate-hbook' ), __( 'Missing', 'hostelmate-hbook' ), __( 'In HBook', 'hostelmate-hbook' ) ),
 			self::cells( (array) $p['mismatches'], array( 'night', 'room', 'missing', 'candidates' ) )
 		);
+		// Before the first live run the brake doesn't apply (SyncRunner::apply): the preview is the owner's check.
+		// Once live, a held change has its own section with Apply and Don't apply (live_step()).
 		$brake = (array) $p['brake'];
-		if ( 'ok' !== ( $brake['verdict'] ?? 'ok' ) ) {
-			View::notice( 'warning', Messages::text( Messages::SYNC_HELD ) );
+		if ( 'ok' !== ( $brake['verdict'] ?? 'ok' ) && ! State::get( 'first_live_done', false ) ) {
+			View::notice( 'info', Messages::text( Messages::PREVIEW_LARGE ) );
 		}
 	}
 
