@@ -50,6 +50,8 @@ final class Plugin {
 			add_action( 'admin_init', Guard::wrap( array( self::class, 'privacy_text' ) ) );
 			add_action( 'admin_menu', Guard::wrap( array( Menu::class, 'register' ) ) );
 			add_action( 'admin_notices', Guard::wrap( array( Notices::class, 'render' ) ) );
+			// A result notice shows once: WordPress removes hm_notice from the address bar, so a reload doesn't repeat it.
+			add_filter( 'removable_query_args', Guard::wrap( static fn( array $args ): array => array_merge( $args, array( 'hm_notice' ) ) ) );
 			add_action( 'admin_post_' . Config::ADMIN_POST_ACTION, Guard::wrap( array( ActionRouter::class, 'handle' ) ) );
 		}
 	}

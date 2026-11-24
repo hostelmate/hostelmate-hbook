@@ -325,7 +325,7 @@ final class Messages {
 			case self::BOOKING_NO_SOURCE:
 				return __( 'Your HostelMate property has no source called "Website", so website bookings are saved there as "ClientAPI". Add a source called Website in HostelMate to see them as website bookings.', 'hostelmate-hbook' );
 			case self::BOOKING_UNMATCHED:
-				return __( 'A website booking is on an HBook room that isn\'t matched to HostelMate, so HostelMate doesn\'t know about it. Match the room.', 'hostelmate-hbook' );
+				return __( 'Website bookings on rooms that aren\'t matched stay in HBook only: HostelMate doesn\'t get them. That\'s fine for rooms HostelMate doesn\'t sell; otherwise match the room.', 'hostelmate-hbook' );
 			case self::BOOKING_TOO_LONG:
 				return __( 'A website booking has no nights or more nights than HostelMate accepts. Check its dates in HBook.', 'hostelmate-hbook' );
 			case self::GUEST_JUST_BOOKED:

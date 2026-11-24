@@ -31,9 +31,13 @@ final class OverviewPage {
 			echo '</div>';
 			return;
 		}
-		Notices::render_list();
 		self::status();
+		if ( ! \HostelMate\HBook\Core\Secret::has() ) {
+			echo '</div>';
+			return;
+		}
 		self::held_change();
+		self::attention();
 		self::last_check();
 		self::copies_tool();
 		echo '</div>';
@@ -44,6 +48,14 @@ final class OverviewPage {
 		$mode     = Settings::mode();
 		$property = State::get( 'property' );
 		echo '<div>';
+		if ( ! \HostelMate\HBook\Core\Secret::has() ) {
+			// Live once, but the key was removed: nothing is kept in step, say so first.
+			echo '<h2>' . esc_html__( 'Not connected', 'hostelmate-hbook' ) . '</h2>';
+			echo '<p>' . esc_html__( 'There is no HostelMate API key, so your website doesn\'t take prices or free beds from HostelMate and doesn\'t send it bookings. Paste a key to connect again.', 'hostelmate-hbook' ) . '</p>';
+			Setup::key_form();
+			echo '</div>';
+			return;
+		}
 		if ( Config::MODE_PAUSED === $mode ) {
 			echo '<h2>' . esc_html__( 'Paused', 'hostelmate-hbook' ) . '</h2>';
 			echo '<p>' . esc_html( Messages::text( Messages::PAUSED ) ) . '</p>';
@@ -55,6 +67,7 @@ final class OverviewPage {
 			/* translators: %s: property name */
 			echo '<p>' . esc_html( sprintf( __( 'HostelMate property: %s', 'hostelmate-hbook' ), (string) ( $property['name'] ?? '' ) ) ) . '</p>';
 		}
+		self::matched_line( is_array( $property ) ? $property : null );
 		$last = State::get( 'last_ok' );
 		if ( is_int( $last ) ) {
 			/* translators: %s: date and time */
@@ -68,6 +81,48 @@ final class OverviewPage {
 			View::form_close( __( 'Pause', 'hostelmate-hbook' ), 'button-secondary' );
 		}
 		echo '</div>';
+	}
+
+	/**
+	 * How many rooms are matched, and what that means for the others. A choice, not an alert.
+	 *
+	 * @param array<string, mixed>|null $property The property read from HostelMate.
+	 */
+	public static function matched_line( ?array $property ): void {
+		if ( null === $property ) {
+			return;
+		}
+		$units   = \HostelMate\HBook\HBook\Units::all();
+		$mapping = \HostelMate\HBook\Core\Mapping::get();
+		$total   = 0;
+		foreach ( $units as $accom ) {
+			$total += count( $accom['units'] );
+		}
+		$left    = \HostelMate\HBook\Core\Mapping::unmatched( $mapping, $property, $units );
+		$matched = $total - $left['hbook'];
+		/* translators: 1: matched, 2: all rooms and beds on the website */
+		$text = sprintf( __( 'Matched: %1$d of %2$d rooms and beds on your website.', 'hostelmate-hbook' ), $matched, $total );
+		if ( $left['hbook'] > 0 ) {
+			/* translators: %d: rooms and beds not matched */
+			$text .= ' ' . sprintf( _n( 'The other %d keeps HBook\'s own prices and free beds, and its bookings don\'t go to HostelMate.', 'The other %d keep HBook\'s own prices and free beds, and their bookings don\'t go to HostelMate.', $left['hbook'], 'hostelmate-hbook' ), $left['hbook'] );
+		}
+		if ( $left['hostelmate'] > 0 ) {
+			/* translators: %d: HostelMate rooms or beds */
+			$text .= ' ' . sprintf( _n( '%d room or bed in HostelMate isn\'t matched to your website.', '%d rooms or beds in HostelMate aren\'t matched to your website.', $left['hostelmate'], 'hostelmate-hbook' ), $left['hostelmate'] );
+		}
+		$url = Setup::done() ? View::page_url( Config::PAGE_ROOMS ) : View::page_url( Config::PAGE_OVERVIEW, array( 'step' => Setup::ROOMS ) );
+		echo '<p>' . esc_html( $text ) . ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Change the matching', 'hostelmate-hbook' ) . '</a></p>';
+	}
+
+	/** Open problems, one line per kind. Three are said in the page's own words instead (status and last check). */
+	private static function attention(): void {
+		$skip   = array( Messages::MAP_HBOOK_UNMATCHED, Messages::MAP_HM_UNMATCHED, Messages::SYNC_MISMATCH );
+		$groups = array_diff_key( Notices::groups(), array_flip( $skip ) );
+		if ( array() === $groups ) {
+			return;
+		}
+		echo '<h2>' . esc_html__( 'Needs your attention', 'hostelmate-hbook' ) . '</h2>';
+		Notices::render_list( $skip );
 	}
 
 	/** A large change the brake held: Apply or Don't apply. */
@@ -122,7 +177,7 @@ final class OverviewPage {
 		echo '<li>' . esc_html( 0 === $closes ? __( 'Free beds: nothing closes.', 'hostelmate-hbook' ) : sprintf( _n( 'Free beds: %d room or bed closes some nights, because HostelMate has them booked.', 'Free beds: %d rooms or beds close some nights, because HostelMate has them booked.', $closes, 'hostelmate-hbook' ), $closes ) ) . '</li>';
 		if ( $mismatches > 0 ) {
 			/* translators: %d: number of nights */
-			echo '<li>' . esc_html( sprintf( _n( 'To fix: %d night is booked on your website but not in HostelMate. HostelMate must know every booking before going live.', 'To fix: %d nights are booked on your website but not in HostelMate. HostelMate must know every booking before going live.', $mismatches, 'hostelmate-hbook' ), $mismatches ) ) . '</li>';
+			echo '<li>' . esc_html( sprintf( _n( 'To fix: %d night is booked on your website (HBook) but HostelMate doesn\'t know it.', 'To fix: %d nights are booked on your website (HBook) but HostelMate doesn\'t know them.', $mismatches, 'hostelmate-hbook' ), $mismatches ) . ' ' . __( 'Those beds stay closed on your website, but HostelMate could sell them again on other channels. Add those bookings in HostelMate, or cancel them in HBook if they are old copies (for example from iCal). The details list each night.', 'hostelmate-hbook' ) ) . '</li>';
 		}
 		if ( array() !== $foreign ) {
 			echo '<li>' . esc_html( Messages::text( Messages::SYNC_FOREIGN_HIGH ) ) . '</li>';

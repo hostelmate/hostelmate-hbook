@@ -147,10 +147,7 @@ final class Setup {
 		if ( null === $property || ! Secret::has() ) {
 			echo '<h2>' . esc_html__( 'Connect your website to HostelMate', 'hostelmate-hbook' ) . '</h2>';
 			echo '<p>' . esc_html__( 'Paste your HostelMate API key below. In HostelMate, you find it under User Management → API Access.', 'hostelmate-hbook' ) . '</p>';
-			View::form_open( Config::ACTION_CONNECT );
-			echo '<p><label for="hm-api-key"><strong>' . esc_html__( 'API key', 'hostelmate-hbook' ) . '</strong></label><br>';
-			echo '<input id="hm-api-key" name="api_key" type="password" class="regular-text code" autocomplete="off" spellcheck="false" required></p>';
-			View::form_close( __( 'Connect', 'hostelmate-hbook' ), 'button-hero' );
+			self::key_form();
 			echo '<p class="description">' . esc_html__( 'Nothing on your website changes until the last step. The key is checked with HostelMate, then saved encrypted.', 'hostelmate-hbook' ) . '</p>';
 			echo '</div>';
 			return;
@@ -168,6 +165,14 @@ final class Setup {
 		echo '<input type="hidden" name="confirm" value="1">';
 		View::form_close( __( 'Disconnect', 'hostelmate-hbook' ), 'button-secondary' );
 		echo '</details></div>';
+	}
+
+	/** The API key box and Connect button (setup step 1, and the Overview if the key was removed after going live). */
+	public static function key_form(): void {
+		View::form_open( Config::ACTION_CONNECT );
+		echo '<p><label for="hm-api-key"><strong>' . esc_html__( 'API key', 'hostelmate-hbook' ) . '</strong></label><br>';
+		echo '<input id="hm-api-key" name="api_key" type="password" class="regular-text code" autocomplete="off" spellcheck="false" required></p>';
+		View::form_close( __( 'Connect', 'hostelmate-hbook' ), 'button-hero' );
 	}
 
 	/** Step 2: the matching table. */
@@ -197,8 +202,12 @@ final class Setup {
 			$saved = State::get( 'rooms_saved_at' );
 			if ( is_array( $last ) && is_string( $last['code'] ?? null ) && (int) ( $last['at'] ?? 0 ) >= ( is_int( $saved ) ? $saved : 0 ) ) {
 				echo '<div class="notice notice-error inline"><p><strong>' . esc_html__( 'The check stopped:', 'hostelmate-hbook' ) . '</strong> ' . esc_html( Messages::text( $last['code'] ) ) . '</p>';
-				if ( Messages::SYNC_CURRENCY === $last['code'] ) {
-					$property = State::get( 'property' );
+				$property = State::get( 'property' );
+				$hm       = is_array( $property ) ? strtoupper( (string) ( $property['currency'] ?? '' ) ) : '';
+				if ( Messages::SYNC_CURRENCY === $last['code'] && '' !== $hm && Options::currency() === $hm ) {
+					/* translators: %s: currency code */
+					echo '<p>' . esc_html( sprintf( __( 'Both use %s now. Run the check again.', 'hostelmate-hbook' ), $hm ) ) . '</p></div>';
+				} elseif ( Messages::SYNC_CURRENCY === $last['code'] ) {
 					/* translators: 1: HBook currency, 2: HostelMate currency */
 					echo '<p>' . esc_html( sprintf( __( 'Your website\'s prices are in %1$s, and HostelMate\'s are in %2$s. Set the same currency in HostelMate\'s property settings (or in HBook), then run the check again.', 'hostelmate-hbook' ), '' !== Options::currency() ? Options::currency() : '?', is_array( $property ) ? strtoupper( (string) ( $property['currency'] ?? '?' ) ) : '?' ) ) . '</p></div>';
 				} else {
@@ -219,12 +228,15 @@ final class Setup {
 		echo '<div>';
 		echo '<h2>' . esc_html__( 'Go live', 'hostelmate-hbook' ) . '</h2>';
 		echo '<p>' . esc_html__( 'From now on your website takes its prices and free beds from HostelMate every 5 minutes, and sends its bookings to HostelMate. You can pause at any time.', 'hostelmate-hbook' ) . '</p>';
+		$property = State::get( 'property' );
+		OverviewPage::matched_line( is_array( $property ) ? $property : null );
 		$items    = GoLive::checklist();
 		$required = array_filter( $items, static fn( array $i ): bool => $i['required'] && ! $i['ok'] );
 		$warnings = array_filter( $items, static fn( array $i ): bool => ! $i['required'] && ! $i['ok'] );
 		echo '<ul>';
 		foreach ( $items as $item ) {
-			echo '<li>' . ( $item['ok'] ? '&#10003; ' : ( $item['required'] ? '&#10007; ' : '&#9888; ' ) ) . esc_html( $item['text'] ) . '</li>';
+			$prefix = $item['ok'] ? '' : ( $item['required'] ? __( 'Missing:', 'hostelmate-hbook' ) . ' ' : __( 'Not yet:', 'hostelmate-hbook' ) . ' ' );
+			echo '<li>' . ( $item['ok'] ? '&#10003; ' : ( $item['required'] ? '&#10007; ' : '&#9888; ' ) ) . esc_html( $prefix . $item['text'] ) . '</li>';
 		}
 		echo '</ul>';
 		OverviewPage::bookings_to_send();
@@ -235,7 +247,7 @@ final class Setup {
 		}
 		View::form_open( Config::ACTION_GO_LIVE );
 		if ( array() !== $warnings ) {
-			echo '<div class="notice notice-warning inline"><p>' . esc_html__( 'Some lines above have a warning. You can fix them first, or go live anyway.', 'hostelmate-hbook' ) . '</p>';
+			echo '<div class="notice notice-warning inline"><p>' . esc_html__( 'Some lines above have a warning. You can fix them first (step 3 lists the details), or go live anyway.', 'hostelmate-hbook' ) . '</p>';
 			echo '<p><label><input name="accept_warnings" type="checkbox" value="1" required> ' . esc_html__( 'I\'ve read the warnings and want to go live anyway.', 'hostelmate-hbook' ) . '</label></p></div>';
 		}
 		View::form_close( __( 'Go live', 'hostelmate-hbook' ), 'button-hero' );

@@ -136,11 +136,39 @@ final class RoomsPage {
 	}
 
 	/**
+	 * A problem's reference in words: a room's name instead of its id.
+	 *
+	 * @param string                                 $ref      "accom:num", an HBook room id, a HostelMate room id, or a name.
+	 * @param array<string, mixed>                   $property Normalised /property answer.
+	 * @param array<int, array{name: string, units: list<int>}> $units    HBook units.
+	 */
+	private static function ref_name( string $ref, array $property, array $units ): string {
+		if ( 1 === preg_match( '/^(\d+):(\d+)$/', $ref, $m ) ) {
+			$accom = $units[ (int) $m[1] ] ?? null;
+			if ( null === $accom ) {
+				/* translators: %d: HBook room id */
+				return sprintf( __( 'HBook room #%d, deleted', 'hostelmate-hbook' ), (int) $m[1] );
+			}
+			return $accom['name'] . ( count( $accom['units'] ) > 1 ? ' · ' . $m[2] : '' );
+		}
+		if ( 1 === preg_match( '/^\d+$/', $ref ) ) {
+			/* translators: %d: HBook room id */
+			return $units[ (int) $ref ]['name'] ?? sprintf( __( 'HBook room #%d, deleted', 'hostelmate-hbook' ), (int) $ref );
+		}
+		foreach ( (array) ( $property['rooms'] ?? array() ) as $room ) {
+			if ( ( $room['id'] ?? '' ) === $ref ) {
+				return (string) $room['name'];
+			}
+		}
+		return \HostelMate\HBook\Core\Validate::is_uuid( $ref ) ? __( 'a HostelMate room that no longer exists', 'hostelmate-hbook' ) : $ref;
+	}
+
+	/**
 	 * Problems from the last save (if any), else the problems of what is saved now.
 	 *
 	 * @param array<string, list<array{accom: int, num: int, bed: string}>> $mapping  Saved mapping.
 	 * @param array<string, mixed>                                          $property Normalised /property answer.
-	 * @param array<int, array{units: list<int>}>                           $units    HBook units.
+	 * @param array<int, array{name: string, units: list<int>}>             $units    HBook units.
 	 */
 	private static function issues( array $mapping, array $property, array $units ): void {
 		$key    = Config::TRANSIENT_ISSUES . get_current_user_id();
@@ -151,7 +179,7 @@ final class RoomsPage {
 		}
 		foreach ( $issues as $issue ) {
 			if ( is_array( $issue ) && is_string( $issue['code'] ?? null ) && is_string( $issue['ref'] ?? null ) ) {
-				View::notice( Mapping::LEVEL_ERROR === ( $issue['level'] ?? '' ) ? 'error' : 'warning', Messages::text( $issue['code'] ) . ' (' . $issue['ref'] . ')' );
+				View::notice( Mapping::LEVEL_ERROR === ( $issue['level'] ?? '' ) ? 'error' : 'warning', Messages::text( $issue['code'] ) . ' (' . self::ref_name( $issue['ref'], $property, $units ) . ')' );
 			}
 		}
 	}

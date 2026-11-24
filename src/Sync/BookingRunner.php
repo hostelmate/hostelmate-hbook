@@ -221,7 +221,8 @@ final class BookingRunner {
 		BookingStore::save( $id, $token, $sent, $state, $attempts, $next_try, $code );
 		$ref = self::ref( $booking, $id );
 		if ( BookingStore::FAILED === $state ) {
-			Alerts::open( $code, Config::ALERT_LEVEL_RED, $ref );
+			// A room left unmatched is the owner's choice, not an emergency: amber, so it is shown but never emailed.
+			Alerts::open( $code, Messages::BOOKING_UNMATCHED === $code ? Config::ALERT_LEVEL_AMBER : Config::ALERT_LEVEL_RED, $ref );
 		} else {
 			self::resolve_alerts( $ref );
 		}
