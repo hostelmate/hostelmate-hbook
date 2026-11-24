@@ -29,13 +29,12 @@ final class Units {
 		global $wpdb;
 		$posts = get_posts(
 			array(
-				'post_type'        => 'hb_accommodation',
-				'post_status'      => 'publish',
-				'numberposts'      => -1,
-				'orderby'          => 'title',
-				'order'            => 'ASC',
-				'suppress_filters' => true,
-				'lang'             => '', // Polylang: every language; filtered just below.
+				'post_type'   => 'hb_accommodation',
+				'post_status' => 'publish',
+				'numberposts' => -1,
+				'orderby'     => 'title',
+				'order'       => 'ASC',
+				'lang'        => '', // Polylang: every language; filtered just below.
 			)
 		);
 		$table = Schema::table( 'accom_num_name' );

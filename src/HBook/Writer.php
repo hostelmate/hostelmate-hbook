@@ -411,7 +411,7 @@ final class Writer {
 	 */
 	private static function own( string $kind, int $id ): void {
 		global $wpdb;
-		if ( false === $wpdb->insert(
+		if ( false === $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- the plugin's own table.
 			Db::table( Config::TABLE_OWNED ),
 			array(
 				'kind'       => $kind,

@@ -150,7 +150,7 @@ final class Tools {
 	private static function keep_starting_price( int $accom ): void {
 		global $wpdb;
 		$old = metadata_exists( 'post', $accom, 'accom_starting_price' ) ? (string) get_post_meta( $accom, 'accom_starting_price', true ) : null;
-		$ok  = $wpdb->insert(
+		$ok  = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- the plugin's own table.
 			Db::table( Config::TABLE_OWNED ),
 			array(
 				'kind'       => Owned::STARTING_PRICE,
