@@ -46,10 +46,6 @@ final class Plugin {
 
 		add_action( 'init', Guard::wrap( array( self::class, 'load_translations' ) ) );
 
-		// Signed updates (off until the release key and manifest address are set).
-		add_filter( 'pre_set_site_transient_update_plugins', Guard::wrap( array( \HostelMate\HBook\Integrations\Updates::class, 'offer' ) ) );
-		add_filter( 'upgrader_pre_download', Guard::wrap( array( \HostelMate\HBook\Integrations\Updates::class, 'download' ) ), 10, 2 );
-
 		if ( is_admin() ) {
 			add_action( 'admin_init', Guard::wrap( array( self::class, 'privacy_text' ) ) );
 			add_action( 'admin_menu', Guard::wrap( array( Menu::class, 'register' ) ) );

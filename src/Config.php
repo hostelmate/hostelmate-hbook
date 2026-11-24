@@ -73,10 +73,6 @@ final class Config {
 	public const LOG_LEVEL_ERROR = 'error';
 
 	// HostelMate API. The base can only be changed from wp-config.php (our tests), never from the screens.
-	// Signed updates (plan 13, D11). Both empty = updates off. The public key is the offline release key's (base64).
-	public const UPDATE_PUBLIC_KEY   = '';
-	public const UPDATE_MANIFEST_URL = '';
-
 	public const API_BASE          = 'https://api.hostelmate.co/api/v1/client/';
 	public const API_BASE_CONSTANT = 'HOSTELMATE_HBOOK_API_BASE';
 	public const API_KEY_CONSTANT  = 'HOSTELMATE_HBOOK_API_KEY';
