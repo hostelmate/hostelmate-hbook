@@ -145,6 +145,17 @@ final class MappingTest extends TestCase {
 		$this->assertCount( 1, Mapping::get()[ self::DORM ] );
 	}
 
+	public function test_unmatched_counts_both_sides(): void {
+		// Scenario 38: a room added later on either side is counted until it is matched.
+		$this->assertSame( array( 'hbook' => 7, 'hostelmate' => 5 ), Mapping::unmatched( array(), self::property(), self::units() ) );
+		$saved = array( self::DORM => array( array( 'accom' => 74, 'num' => 1, 'bed' => self::bed( self::DORM, 74 ) ) ) );
+		$this->assertSame( array( 'hbook' => 6, 'hostelmate' => 4 ), Mapping::unmatched( $saved, self::property(), self::units() ) );
+		$property                        = self::property();
+		$property['rooms'][0]['active']  = false; // A room switched off in HostelMate is not asked for.
+		$this->assertSame( 3, Mapping::unmatched( $saved, $property, self::units() )['hostelmate'] );
+		$this->assertSame( array( 'hbook' => 0, 'hostelmate' => 0 ), Mapping::unmatched( array(), null, array() ) );
+	}
+
 	public function test_zero_fake_numbers_mean_not_set(): void {
 		$bed74 = self::bed( self::DORM, 74 );
 		$save  = static fn( array $property ): array => array_column( Mapping::save( array( self::DORM => array( array( 'accom' => 74, 'num' => 1, 'bed' => $bed74 ) ) ), $property, self::units() ), 'code' );

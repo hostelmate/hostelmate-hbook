@@ -217,7 +217,9 @@ final class Schemas {
 	 * @param mixed $value Anything.
 	 */
 	private static function is_zone_or_empty( $value ): bool {
-		return '' === $value || ( is_string( $value ) && in_array( $value, \DateTimeZone::listIdentifiers(), true ) );
+		// The shape of a zone name only: a zone this server's PHP doesn't know yet (an older time zone database, or an
+		// old alias such as Asia/Calcutta) must not make the whole answer unreadable. SyncRunner::zones_match() warns.
+		return '' === $value || ( is_string( $value ) && 1 === preg_match( '#^[A-Za-z][A-Za-z0-9_+\-]{0,30}(/[A-Za-z0-9_+\-]{1,30}){0,2}\z#', $value ) );
 	}
 
 	/**

@@ -45,7 +45,7 @@ defined( 'ABSPATH' ) || exit;
 final class SyncRunner {
 
 	/** Fetch problems: one alert at a time, resolved by the next good fetch. */
-	private const FETCH_ALERTS = array( Messages::SYNC_KEY_REFUSED, Messages::SYNC_BAD_ANSWER, Messages::SYNC_UNREACHABLE );
+	private const FETCH_ALERTS = array( Messages::SYNC_KEY_REFUSED, Messages::SYNC_PLAN, Messages::SYNC_BAD_ANSWER, Messages::SYNC_UNREACHABLE );
 
 	/**
 	 * One run. Returns the Messages code that describes how it ended.
@@ -105,6 +105,11 @@ final class SyncRunner {
 
 		self::alert_if( array() !== $prices['foreign_high'], Messages::SYNC_FOREIGN_HIGH, $live ? Config::ALERT_LEVEL_RED : Config::ALERT_LEVEL_AMBER );
 		self::alert_if( array() !== $blocks['mismatches'], Messages::SYNC_MISMATCH, $live ? Config::ALERT_LEVEL_RED : Config::ALERT_LEVEL_AMBER );
+		// A room added later on either side (scenario 38): a quiet warning until it is matched.
+		$property  = State::get( 'property' );
+		$unmatched = Mapping::unmatched( Mapping::get(), is_array( $property ) ? $property : null, $ctx['units'] );
+		self::alert_if( $unmatched['hbook'] > 0, Messages::MAP_HBOOK_UNMATCHED, Config::ALERT_LEVEL_AMBER );
+		self::alert_if( $unmatched['hostelmate'] > 0, Messages::MAP_HM_UNMATCHED, Config::ALERT_LEVEL_AMBER );
 
 		State::set( 'preview', Summary::build( $ctx, $prices, $blocks, $brake ) );
 		if ( ! $live ) {
@@ -125,7 +130,11 @@ final class SyncRunner {
 	private static function apply( array $ctx, array $prices, array $blocks, array $brake ): string {
 		// Another plugin's high-priority seasons would make HBook pick prices at random: keep the
 		// last prices (red alert is open) but still keep availability right.
-		$write_prices = array() === $prices['foreign_high'] && self::prices_differ( $ctx, $prices );
+		// HBook's own rules, coupons, discounts and extra-person rates are copied onto the plugin's seasons when they
+		// are written; a change to them (found live 2026-11-24: an extra-adult rate added after go-live was not charged)
+		// makes the prices be written again, not only a change from HostelMate.
+		$links        = self::links_fingerprint( $ctx );
+		$write_prices = array() === $prices['foreign_high'] && ( self::prices_differ( $ctx, $prices ) || State::get( 'base_links' ) !== $links );
 		$all_units    = array_merge( ...array_values( $ctx['room_units'] ) );
 		$block_units  = Writer::units_to_change( $blocks['wanted'], $ctx['rows'], $all_units, $ctx['today'] );
 		if ( ! $write_prices && array() === $block_units ) {
@@ -165,6 +174,9 @@ final class SyncRunner {
 		}
 
 		State::set( 'last_price', $prices['last_price'] );
+		if ( $write_prices ) {
+			State::set( 'base_links', $links );
+		}
 		State::set( 'first_live_done', true );
 		State::set( 'brake_override_until', 0 );
 		State::set( 'held', null );
@@ -214,6 +226,15 @@ final class SyncRunner {
 		return false;
 	}
 
+	/**
+	 * What HBook links to its own seasons (not the plugin's): the links the plugin copies onto its seasons.
+	 *
+	 * @param Context $ctx context().
+	 */
+	private static function links_fingerprint( array $ctx ): string {
+		return md5( (string) wp_json_encode( array_diff_key( Prices::season_links(), array_flip( $ctx['own_seasons'] ) ) ) );
+	}
+
 	/** Records a successful run (used for the "late" warning). */
 	private static function mark_ok(): void {
 		State::set( 'last_ok', time() );
@@ -236,6 +257,11 @@ final class SyncRunner {
 			Alerts::resolve( $code );
 		}
 		self::alert_if( ! self::zones_match(), Messages::SYNC_TIMEZONE, Config::ALERT_LEVEL_AMBER );
+		// An HBook version not tested yet whose tables still match: carry on, and say so (plan 11, scenario 39).
+		Alerts::resolve_code( Messages::SYNC_HBOOK_UNTESTED );
+		if ( ! Schema::is_tested_version() ) {
+			Alerts::open( Messages::SYNC_HBOOK_UNTESTED, Config::ALERT_LEVEL_AMBER, 'HBook ' . Schema::version() );
+		}
 		return '';
 	}
 
@@ -293,7 +319,7 @@ final class SyncRunner {
 			$result = Client::rates( $chunk[0], $chunk[ count( $chunk ) - 1 ] );
 			if ( ! $result->is_ok() ) {
 				$code = match ( $result->kind ) {
-					Result::UNAUTHORIZED, Result::FORBIDDEN => Messages::SYNC_KEY_REFUSED,
+					Result::UNAUTHORIZED, Result::FORBIDDEN => Result::refusal_message( $result->kind ),
 					Result::INVALID => Messages::SYNC_BAD_ANSWER,
 					default => Messages::SYNC_UNREACHABLE,
 				};
@@ -412,7 +438,11 @@ final class SyncRunner {
 		if ( '' === $zone ) {
 			return true;
 		}
-		$hm = new \DateTimeZone( $zone );
+		try {
+			$hm = new \DateTimeZone( $zone );
+		} catch ( \Exception $e ) {
+			return false; // A zone this PHP doesn't know: can't compare, so say the zones may differ (amber), and carry on.
+		}
 		$wp = Clock::site_zone();
 		foreach ( array( 'now', '+182 days' ) as $when ) {
 			$t = new \DateTimeImmutable( $when );

@@ -84,7 +84,7 @@ final class HostelMateClientTest extends TestCase {
 			'no rooms'       => array( static fn( array $d ): array => array_diff_key( $d, array( 'rooms' => 1 ) ) ),
 			'bad id'         => array( static function ( array $d ): array { $d['property']['id'] = '1 OR 1=1'; return $d; } ),
 			'bad currency'   => array( static function ( array $d ): array { $d['property']['currency'] = 'PESOS'; return $d; } ),
-			'bad zone'       => array( static function ( array $d ): array { $d['property']['timezone'] = 'Mars/Base'; return $d; } ),
+			'bad zone'       => array( static function ( array $d ): array { $d['property']['timezone'] = 'Mars Base!'; return $d; } ), // A well-formed unknown zone is read (warned about later).
 			'room html name' => array( static function ( array $d ): array { $d['rooms'][0]['name'] = "Dorm\n<script>"; return $d; } ),
 			'string status'  => array( static function ( array $d ): array { $d['rooms'][0]['status'] = 'true'; return $d; } ),
 			'unknown sell'   => array( static function ( array $d ): array { $d['rooms'][0]['room_sell'] = 'per_bed'; return $d; } ),
@@ -189,6 +189,25 @@ final class HostelMateClientTest extends TestCase {
 		$this->assertSame( 'unknown', Client::property()->code );
 		self::answer( 400, array( 'code' => 'availability_conflict', 'channel' => array( 'x' ) ) );
 		$this->assertSame( 'availability_conflict', Client::property()->code );
+	}
+
+	public function test_a_refused_key_and_a_plan_without_the_api_are_told_apart(): void {
+		$this->assertSame( \HostelMate\HBook\Messages::SYNC_PLAN, Result::refusal_message( Result::FORBIDDEN ) );
+		$this->assertSame( \HostelMate\HBook\Messages::SYNC_KEY_REFUSED, Result::refusal_message( Result::UNAUTHORIZED ) );
+		$this->assertSame( \HostelMate\HBook\Messages::SYNC_KEY_REFUSED, Result::refusal_message( '' ) );
+	}
+
+	public function test_any_well_formed_zone_is_read(): void {
+		// A zone the server's PHP may not know (newer zone, or an old alias) must not make /property unreadable.
+		$body = json_decode( (string) file_get_contents( __DIR__ . '/fixtures/property.json' ), true );
+		foreach ( array( 'Europe/Kyiv', 'Asia/Calcutta', 'America/Argentina/Rio_Gallegos', 'Etc/GMT+5', 'UTC', '' ) as $zone ) {
+			$body['property']['timezone'] = $zone;
+			$this->assertNotNull( Schemas::property( $body ), $zone );
+		}
+		foreach ( array( '../../etc/passwd', 'Europe/', '/Madrid', 'Europe/Madrid/x/y', "Europe/Madrid\n", 5 ) as $zone ) {
+			$body['property']['timezone'] = $zone;
+			$this->assertNull( Schemas::property( $body ), (string) $zone );
+		}
 	}
 
 	public function test_availability_keeps_the_stay_rule_hostelmate_names(): void {

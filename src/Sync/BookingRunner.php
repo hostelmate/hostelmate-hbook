@@ -188,7 +188,7 @@ final class BookingRunner {
 				return;
 			case BookingSender::STOP_ALL:
 				BookingStore::save( $id, $token, $sent, BookingStore::PENDING, $attempts, time() + 300, $result['code'] );
-				Alerts::open( Messages::SYNC_KEY_REFUSED, Config::ALERT_LEVEL_RED );
+				Alerts::open( \HostelMate\HBook\HostelMate\Result::refusal_message( explode( ':', $result['code'] )[1] ?? '' ), Config::ALERT_LEVEL_RED );
 				return;
 			default: // RETRY, STOP_RUN.
 				$waits = Config::BOOKING_RETRY_AFTER;

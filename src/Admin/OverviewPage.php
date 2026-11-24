@@ -236,6 +236,15 @@ final class OverviewPage {
 			array( __( 'Room', 'hostelmate-hbook' ), __( 'Nights', 'hostelmate-hbook' ), __( 'From', 'hostelmate-hbook' ) ),
 			self::cells( (array) $p['closes'], array( 'room', 'nights', 'first' ) )
 		);
+		$stopped = (array) ( $p['stopped_rates'] ?? array() );
+		if ( array() !== $stopped ) {
+			self::table(
+				/* translators: %d: number of prices */
+				sprintf( __( 'HBook package or conditional prices that stop on matched rooms, because HostelMate sets the price of every night (%d)', 'hostelmate-hbook' ), count( $stopped ) ),
+				array( __( 'Room', 'hostelmate-hbook' ), __( 'Price for', 'hostelmate-hbook' ), __( 'Amount', 'hostelmate-hbook' ) ),
+				self::cells( $stopped, array( 'room', 'kind', 'amount' ) )
+			);
+		}
 		self::table(
 			/* translators: %d: number of nights */
 			sprintf( __( 'Mismatches: HBook holds something HostelMate doesn\'t know (%d room-nights)', 'hostelmate-hbook' ), (int) $p['mismatch_total'] ),

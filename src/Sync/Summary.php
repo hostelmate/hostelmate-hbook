@@ -102,6 +102,25 @@ final class Summary {
 			$opened += count( array_diff( array_keys( $set ), $blocks['wanted'][ $unit ] ?? array() ) );
 		}
 
+		// D16: HBook's package prices (one price for several nights) and rule prices on matched rooms stop applying
+		// (HostelMate sets the price of every night). The owner sees which.
+		$stopped = array();
+		$own     = array_flip( \HostelMate\HBook\HBook\Owned::ids( \HostelMate\HBook\HBook\Owned::RATE ) );
+		foreach ( $ctx['rates'] as $rate ) {
+			if ( isset( $own[ $rate['id'] ] ) || 'accom' !== $rate['type'] || ( 1 === $rate['nights'] && array() === $rate['rules'] ) ) {
+				continue;
+			}
+			foreach ( $rate['accoms'] as $accom ) {
+				if ( isset( $ctx['accom_room'][ $accom ] ) ) {
+					$stopped[] = array(
+						'room'   => self::name( $ctx, (int) $accom ),
+						'kind'   => $rate['nights'] > 1 ? sprintf( /* translators: %d: nights */ __( '%d nights', 'hostelmate-hbook' ), $rate['nights'] ) : __( 'with conditions', 'hostelmate-hbook' ),
+						'amount' => $rate['amount'],
+					);
+				}
+			}
+		}
+
 		$mismatch_lines = array();
 		foreach ( $blocks['mismatches'] as $m ) {
 			$mismatch_lines[] = array(
@@ -128,6 +147,7 @@ final class Summary {
 			'foreign_high'   => $prices['foreign_high'],
 			'no_season'      => count( $prices['no_season'] ),
 			'brake'          => $brake,
+			'stopped_rates'  => array_slice( $stopped, 0, self::MAX_LINES ),
 		);
 	}
 

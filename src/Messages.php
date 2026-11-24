@@ -48,33 +48,35 @@ final class Messages {
 	public const CONNECT_FIRST       = 'connect_first';
 
 	// Sync runs (log codes; the *_ALERT ones are also alerts).
-	public const SYNC_NO_KEY       = 'sync_no_key';
-	public const SYNC_SCHEMA       = 'sync_schema';
-	public const SYNC_NO_MAPPING   = 'sync_no_mapping';
-	public const SYNC_CURRENCY     = 'sync_currency';
-	public const SYNC_TIMEZONE     = 'sync_timezone';
-	public const SYNC_KEY_REFUSED  = 'sync_key_refused';
-	public const SYNC_BAD_ANSWER   = 'sync_bad_answer';
-	public const SYNC_UNREACHABLE  = 'sync_unreachable';
-	public const SYNC_FOREIGN_HIGH = 'sync_foreign_high';
-	public const SYNC_MISMATCH     = 'sync_mismatch';
-	public const SYNC_HELD         = 'sync_held';
-	public const SYNC_WRITE_FAILED = 'sync_write_failed';
-	public const SYNC_NO_CHANGE    = 'sync_no_change';
-	public const SYNC_APPLIED      = 'sync_applied';
-	public const PREVIEW_READY     = 'preview_ready';
-	public const PREVIEW_LARGE     = 'preview_large';
-	public const SYNC_BUSY         = 'sync_busy';
-	public const SYNC_LATE         = 'sync_late';
-	public const SYNC_VERY_LATE    = 'sync_very_late';
-	public const GO_LIVE_DONE      = 'go_live_done';
-	public const GO_LIVE_BLOCKED   = 'go_live_blocked';
-	public const PAUSED            = 'paused';
-	public const RESUMED           = 'resumed';
-	public const HELD_APPLIED      = 'held_applied';
-	public const HELD_DISCARDED    = 'held_discarded';
-	public const DATA_REMOVED      = 'data_removed';
-	public const REMOVE_CONFIRM    = 'remove_confirm';
+	public const SYNC_NO_KEY         = 'sync_no_key';
+	public const SYNC_SCHEMA         = 'sync_schema';
+	public const SYNC_NO_MAPPING     = 'sync_no_mapping';
+	public const SYNC_CURRENCY       = 'sync_currency';
+	public const SYNC_HBOOK_UNTESTED = 'sync_hbook_untested';
+	public const SYNC_TIMEZONE       = 'sync_timezone';
+	public const SYNC_PLAN           = 'sync_plan';
+	public const SYNC_KEY_REFUSED    = 'sync_key_refused';
+	public const SYNC_BAD_ANSWER     = 'sync_bad_answer';
+	public const SYNC_UNREACHABLE    = 'sync_unreachable';
+	public const SYNC_FOREIGN_HIGH   = 'sync_foreign_high';
+	public const SYNC_MISMATCH       = 'sync_mismatch';
+	public const SYNC_HELD           = 'sync_held';
+	public const SYNC_WRITE_FAILED   = 'sync_write_failed';
+	public const SYNC_NO_CHANGE      = 'sync_no_change';
+	public const SYNC_APPLIED        = 'sync_applied';
+	public const PREVIEW_READY       = 'preview_ready';
+	public const PREVIEW_LARGE       = 'preview_large';
+	public const SYNC_BUSY           = 'sync_busy';
+	public const SYNC_LATE           = 'sync_late';
+	public const SYNC_VERY_LATE      = 'sync_very_late';
+	public const GO_LIVE_DONE        = 'go_live_done';
+	public const GO_LIVE_BLOCKED     = 'go_live_blocked';
+	public const PAUSED              = 'paused';
+	public const RESUMED             = 'resumed';
+	public const HELD_APPLIED        = 'held_applied';
+	public const HELD_DISCARDED      = 'held_discarded';
+	public const DATA_REMOVED        = 'data_removed';
+	public const REMOVE_CONFIRM      = 'remove_confirm';
 
 	// Booking loop.
 	public const BOOKING_SENT      = 'booking_sent';
@@ -117,6 +119,8 @@ final class Messages {
 	public const MAP_NO_CHANNEL_ID     = 'map_no_channel_id';
 	public const MAP_FAKE_NUMBERS      = 'map_fake_numbers';
 	public const MAP_ROOM_OFF          = 'map_room_off';
+	public const MAP_HBOOK_UNMATCHED   = 'map_hbook_unmatched';
+	public const MAP_HM_UNMATCHED      = 'map_hm_unmatched';
 
 	/** @var list<string> Notice codes shown as success (the rest of NOTICE_CODES are errors). */
 	public const SUCCESS_CODES = array( self::CONNECTED, self::KEY_REMOVED, self::ROOMS_REFRESHED, self::SETTINGS_SAVED, self::MAPPING_SAVED, self::PREVIEW_READY, self::SYNC_APPLIED, self::SYNC_NO_CHANGE, self::GO_LIVE_DONE, self::RESUMED, self::HELD_APPLIED, self::DATA_REMOVED, self::COPIES_CANCELLED, self::COPIES_RESTORED );
@@ -148,6 +152,7 @@ final class Messages {
 		self::SYNC_NO_MAPPING,
 		self::SYNC_CURRENCY,
 		self::SYNC_KEY_REFUSED,
+		self::SYNC_PLAN,
 		self::SYNC_BAD_ANSWER,
 		self::SYNC_UNREACHABLE,
 		self::SYNC_HELD,
@@ -253,8 +258,12 @@ final class Messages {
 				return __( 'No rooms are matched yet.', 'hostelmate-hbook' );
 			case self::SYNC_CURRENCY:
 				return __( 'HostelMate and HBook use different currencies. Nothing is changed until they match.', 'hostelmate-hbook' );
+			case self::SYNC_HBOOK_UNTESTED:
+				return __( 'HBook was updated to a version this plugin hasn\'t been tested on yet. Its tables still look the same, so everything keeps running. Tell HostelMate support if anything looks wrong.', 'hostelmate-hbook' );
 			case self::SYNC_TIMEZONE:
 				return __( 'WordPress and HostelMate are set to different time zones, so "today" may differ. Set the same zone in both.', 'hostelmate-hbook' );
+			case self::SYNC_PLAN:
+				return __( 'Your HostelMate plan doesn\'t include the API (it is on Lite), so nothing is kept in step. Change the plan in HostelMate.', 'hostelmate-hbook' );
 			case self::SYNC_KEY_REFUSED:
 				return __( 'HostelMate no longer accepts the key. Nothing is kept in step until a working key is added.', 'hostelmate-hbook' );
 			case self::SYNC_BAD_ANSWER:
@@ -347,6 +356,10 @@ final class Messages {
 				return __( 'There is no held change.', 'hostelmate-hbook' );
 			case self::SYNC_BUSY:
 				return __( 'A check is already running. Try again in a minute.', 'hostelmate-hbook' );
+			case self::MAP_HBOOK_UNMATCHED:
+				return __( 'Some HBook rooms or beds aren\'t matched to HostelMate. The website sells them on its own, and HostelMate doesn\'t hear about their bookings. Match them on the Rooms page, unless they aren\'t in HostelMate at all.', 'hostelmate-hbook' );
+			case self::MAP_HM_UNMATCHED:
+				return __( 'Some HostelMate rooms aren\'t matched to an HBook room, so the website doesn\'t sell them. Match them on the Rooms page.', 'hostelmate-hbook' );
 			case self::MAP_ROOM_OFF:
 				return __( 'This HostelMate room is switched off.', 'hostelmate-hbook' );
 		}

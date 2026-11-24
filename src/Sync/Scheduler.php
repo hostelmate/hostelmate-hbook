@@ -71,16 +71,21 @@ final class Scheduler {
 		Log::prune();
 	}
 
-	/** admin_init: warns when a live site hasn't synced for a while (cron depends on visits). */
+	/**
+	 * init, on every request: warns when a live site hasn't synced for a while. Found live 2026-11-24: it ran on
+	 * admin pages only, so with WordPress's timer dead and nobody opening the admin, nobody was told. A visitor's
+	 * page now raises it too (the email goes out at the end of that request). It writes only when the alert
+	 * changes, so a busy site doesn't save an option on every page while it is late.
+	 */
 	public static function check_late(): void {
-		if ( Config::MODE_LIVE !== Settings::mode() || ! current_user_can( Config::CAPABILITY ) ) {
+		if ( Config::MODE_LIVE !== Settings::mode() ) {
 			return;
 		}
-		$age = time() - (int) State::get( 'last_ok', time() );
-		if ( $age > Config::VERY_LATE_AFTER ) {
-			Alerts::open( Messages::SYNC_VERY_LATE, Config::ALERT_LEVEL_RED );
-		} elseif ( $age > Config::LATE_AFTER ) {
-			Alerts::open( Messages::SYNC_LATE, Config::ALERT_LEVEL_AMBER );
+		$age  = time() - (int) State::get( 'last_ok', time() );
+		$want = $age > Config::VERY_LATE_AFTER ? Messages::SYNC_VERY_LATE : ( $age > Config::LATE_AFTER ? Messages::SYNC_LATE : '' );
+		$open = array_column( Alerts::list(), 'code' );
+		if ( '' !== $want && ! in_array( $want, $open, true ) ) {
+			Alerts::open( $want, Messages::SYNC_VERY_LATE === $want ? Config::ALERT_LEVEL_RED : Config::ALERT_LEVEL_AMBER );
 		}
 	}
 }

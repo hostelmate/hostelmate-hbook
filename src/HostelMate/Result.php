@@ -59,6 +59,16 @@ final class Result {
 		return new self( $kind, $status, $code, null );
 	}
 
+	/**
+	 * The owner's message when HostelMate stops answering this key: 401 = the key itself, 403 = the plan (Lite has
+	 * no client API: base.py:27). Found live 2026-11-24: both said "no longer accepts the key".
+	 *
+	 * @param string $kind Result kind.
+	 */
+	public static function refusal_message( string $kind ): string {
+		return self::FORBIDDEN === $kind ? \HostelMate\HBook\Messages::SYNC_PLAN : \HostelMate\HBook\Messages::SYNC_KEY_REFUSED;
+	}
+
 	/** True for ok. */
 	public function is_ok(): bool {
 		return self::OK === $this->kind;

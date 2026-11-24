@@ -32,6 +32,7 @@ final class Plugin {
 		// Timers.
 		add_filter( 'cron_schedules', Guard::wrap( array( Scheduler::class, 'schedules' ) ) ); // phpcs:ignore WordPress.WP.CronInterval.ChangeDetected -- 5 minutes, declared in Config::SYNC_EVERY.
 		add_action( 'init', Guard::wrap( array( Scheduler::class, 'ensure' ) ) );
+		add_action( 'init', Guard::wrap( array( Scheduler::class, 'check_late' ) ) );
 		add_action( Config::CRON_SYNC, Guard::wrap( array( Scheduler::class, 'sync' ) ) );
 		add_action( Config::CRON_BOOKINGS, Guard::wrap( array( Scheduler::class, 'bookings' ) ) );
 		add_action( Config::CRON_DAILY, Guard::wrap( array( Scheduler::class, 'daily' ) ) );
@@ -53,7 +54,6 @@ final class Plugin {
 			add_action( 'admin_init', Guard::wrap( array( self::class, 'privacy_text' ) ) );
 			add_action( 'admin_menu', Guard::wrap( array( Menu::class, 'register' ) ) );
 			add_action( 'admin_notices', Guard::wrap( array( Notices::class, 'render' ) ) );
-			add_action( 'admin_init', Guard::wrap( array( Scheduler::class, 'check_late' ) ) );
 			add_action( 'admin_post_' . Config::ADMIN_POST_ACTION, Guard::wrap( array( ActionRouter::class, 'handle' ) ) );
 		}
 	}

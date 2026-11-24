@@ -32,6 +32,37 @@ final class Mapping {
 	}
 
 	/**
+	 * How many HBook units and HostelMate rooms (switched on) have no match. Pure.
+	 *
+	 * @param array<string, list<array{accom: int, num: int, bed: string}>> $mapping  HostelMate room id → units.
+	 * @param array<string, mixed>                                          $property Normalised /property answer (or null).
+	 * @param array<int, array{units: list<int>}>                           $units    HBook\Units::all().
+	 * @return array{hbook: int, hostelmate: int}
+	 */
+	public static function unmatched( array $mapping, ?array $property, array $units ): array {
+		$used = array();
+		foreach ( $mapping as $list ) {
+			foreach ( $list as $u ) {
+				$used[ $u['accom'] . ':' . $u['num'] ] = true;
+			}
+		}
+		$hbook = 0;
+		foreach ( $units as $accom => $u ) {
+			foreach ( $u['units'] as $num ) {
+				$hbook += isset( $used[ $accom . ':' . $num ] ) ? 0 : 1;
+			}
+		}
+		$hostelmate = 0;
+		foreach ( (array) ( $property['rooms'] ?? array() ) as $room ) {
+			$hostelmate += true === ( $room['active'] ?? false ) && ! isset( $mapping[ (string) ( $room['id'] ?? '' ) ] ) ? 1 : 0;
+		}
+		return array(
+			'hbook'      => $hbook,
+			'hostelmate' => $hostelmate,
+		);
+	}
+
+	/**
 	 * Saves a mapping only when it has no errors (warnings are allowed).
 	 *
 	 * @param array<string, list<array{accom: int, num: int, bed: string}>> $mapping  HostelMate room id → units.
