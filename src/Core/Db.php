@@ -51,7 +51,7 @@ final class Db {
 		global $wpdb;
 		foreach ( Config::TABLES as $name ) {
 			$table = self::table( $name );
-			$wpdb->query( "DROP TABLE IF EXISTS `{$table}`" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Config only.
+			$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $table ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- uninstall removes the plugin's own tables.
 		}
 	}
 

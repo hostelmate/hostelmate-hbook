@@ -53,7 +53,7 @@ final class Log {
 		global $wpdb;
 		$table = Db::table( Config::TABLE_LOG );
 		$limit = max( 1, min( 500, $limit ) );
-		$rows  = $wpdb->get_results( $wpdb->prepare( "SELECT id, at, level, code, resa_id, room_id, detail FROM `{$table}` ORDER BY id DESC LIMIT %d OFFSET %d", $limit, max( 0, $offset ) ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Config only.
+		$rows  = $wpdb->get_results( $wpdb->prepare( 'SELECT id, at, level, code, resa_id, room_id, detail FROM %i ORDER BY id DESC LIMIT %d OFFSET %d', $table, $limit, max( 0, $offset ) ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		return is_array( $rows ) ? array_values( $rows ) : array();
 	}
 
@@ -62,10 +62,10 @@ final class Log {
 		global $wpdb;
 		$table  = Db::table( Config::TABLE_LOG );
 		$cutoff = gmdate( 'Y-m-d H:i:s', time() - Config::LOG_KEEP_DAYS * DAY_IN_SECONDS );
-		$wpdb->query( $wpdb->prepare( "DELETE FROM `{$table}` WHERE at < %s", $cutoff ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Config only.
-		$keep_from = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$table}` ORDER BY id DESC LIMIT 1 OFFSET %d", Config::LOG_KEEP_ROWS - 1 ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Config only.
+		$wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE at < %s', $table, $cutoff ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$keep_from = $wpdb->get_var( $wpdb->prepare( 'SELECT id FROM %i ORDER BY id DESC LIMIT 1 OFFSET %d', $table, Config::LOG_KEEP_ROWS - 1 ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		if ( null !== $keep_from ) {
-			$wpdb->query( $wpdb->prepare( "DELETE FROM `{$table}` WHERE id < %d", (int) $keep_from ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Config only.
+			$wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE id < %d', $table, (int) $keep_from ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		}
 	}
 

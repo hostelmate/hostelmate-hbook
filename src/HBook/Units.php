@@ -38,7 +38,7 @@ final class Units {
 			)
 		);
 		$table = Schema::table( 'accom_num_name' );
-		$rows  = $wpdb->get_results( "SELECT accom_id, accom_num FROM `{$table}` ORDER BY accom_id, accom_num", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema only.
+		$rows  = $wpdb->get_results( $wpdb->prepare( 'SELECT accom_id, accom_num FROM %i ORDER BY accom_id, accom_num', $table ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$units = array();
 		foreach ( (array) $rows as $row ) {
 			$units[ (int) $row['accom_id'] ][] = (int) $row['accom_num'];

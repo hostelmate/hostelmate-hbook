@@ -33,7 +33,7 @@ final class Prices {
 		$s_table = Schema::table( 'seasons' );
 		$d_table = Schema::table( 'seasons_dates' );
 		$seasons = array();
-		foreach ( (array) $wpdb->get_results( "SELECT id, name, priority FROM `{$s_table}` ORDER BY id", ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema only.
+		foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT id, name, priority FROM %i ORDER BY id', $s_table ), ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$seasons[ (int) $row['id'] ] = array(
 				'id'       => (int) $row['id'],
 				'name'     => (string) $row['name'],
@@ -41,7 +41,7 @@ final class Prices {
 				'dates'    => array(),
 			);
 		}
-		foreach ( (array) $wpdb->get_results( "SELECT id, season_id, start_date, end_date, days FROM `{$d_table}` ORDER BY id", ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema only.
+		foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT id, season_id, start_date, end_date, days FROM %i ORDER BY id', $d_table ), ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$id = (int) $row['season_id'];
 			if ( isset( $seasons[ $id ] ) ) {
 				$seasons[ $id ]['dates'][] = array(
@@ -145,7 +145,7 @@ final class Prices {
 		global $wpdb;
 		$rates = Schema::table( 'rates' );
 		$out   = array();
-		foreach ( (array) $wpdb->get_results( "SELECT id, type, amount, nights FROM `{$rates}` ORDER BY id", ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema only.
+		foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT id, type, amount, nights FROM %i ORDER BY id', $rates ), ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$out[ (int) $row['id'] ] = array(
 				'id'      => (int) $row['id'],
 				'type'    => (string) $row['type'],
@@ -162,7 +162,7 @@ final class Prices {
 			'rates_rules'   => array( 'rule_id', 'rules' ),
 		) as $name => list( $column, $field ) ) {
 			$table = Schema::table( $name );
-			foreach ( (array) $wpdb->get_results( "SELECT rate_id, `{$column}` AS v FROM `{$table}`", ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifiers from Schema only.
+			foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT rate_id, %i AS v FROM %i', $column, $table ), ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 				$id = (int) $row['rate_id'];
 				if ( isset( $out[ $id ] ) ) {
 					$out[ $id ][ $field ][] = (int) $row['v'];
@@ -234,7 +234,7 @@ final class Prices {
 			'discounts_seasons'     => array( 'discount_id', 'discounts' ),
 		) as $name => list( $column, $field ) ) {
 			$table = Schema::table( $name );
-			foreach ( (array) $wpdb->get_results( "SELECT season_id, `{$column}` AS v FROM `{$table}`", ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifiers from Schema only.
+			foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT season_id, %i AS v FROM %i', $column, $table ), ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 				$out[ (int) $row['season_id'] ][ $field ][] = (int) $row['v'];
 			}
 		}

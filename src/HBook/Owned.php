@@ -32,7 +32,7 @@ final class Owned {
 	public static function ids( string $kind ): array {
 		global $wpdb;
 		$table = Db::table( Config::TABLE_OWNED );
-		return array_values( array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( "SELECT hbook_id FROM `{$table}` WHERE kind = %s", $kind ) ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Config only.
+		return array_values( array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( 'SELECT hbook_id FROM %i WHERE kind = %s', $table, $kind ) ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 	}
 
 	/**

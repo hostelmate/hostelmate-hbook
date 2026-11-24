@@ -29,7 +29,7 @@ final class Tools {
 		$resa  = Schema::table( 'resa' );
 		$today = Clock::today( Clock::site_zone() );
 		$out   = array();
-		foreach ( (array) $wpdb->get_results( $wpdb->prepare( "SELECT origin, COUNT(*) AS n FROM `{$resa}` WHERE origin <> 'website' AND origin <> '' AND synchro_id <> '' AND status <> 'cancelled' AND check_out > %s GROUP BY origin", $today ), ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema only.
+		foreach ( (array) $wpdb->get_results( $wpdb->prepare( "SELECT origin, COUNT(*) AS n FROM %i WHERE origin <> 'website' AND origin <> '' AND synchro_id <> '' AND status <> 'cancelled' AND check_out > %s GROUP BY origin", $resa, $today ), ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$out[ (string) $row['origin'] ] = (int) $row['n'];
 		}
 		return $out;
@@ -46,7 +46,7 @@ final class Tools {
 		$resa  = Schema::table( 'resa' );
 		$block = Schema::table( 'accom_blocked' );
 		$today = Clock::today( Clock::site_zone() );
-		$rows  = (array) $wpdb->get_results( $wpdb->prepare( "SELECT id, status FROM `{$resa}` WHERE origin <> 'website' AND origin <> '' AND synchro_id <> '' AND status <> 'cancelled' AND check_out > %s", $today ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema only.
+		$rows  = (array) $wpdb->get_results( $wpdb->prepare( "SELECT id, status FROM %i WHERE origin <> 'website' AND origin <> '' AND synchro_id <> '' AND status <> 'cancelled' AND check_out > %s", $resa, $today ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		if ( array() === $rows ) {
 			return 0;
 		}
@@ -54,11 +54,11 @@ final class Tools {
 		foreach ( $rows as $r ) {
 			$undo[ (int) $r['id'] ] = (string) $r['status'];
 		}
-		$in = implode( ',', array_keys( $undo ) );
+		$ids = array_keys( $undo );
 		Db::transaction(
-			static function () use ( $wpdb, $resa, $block, $in ): void {
-				$ok = $wpdb->query( "UPDATE `{$resa}` SET status = 'cancelled', updated_on = UTC_TIMESTAMP() WHERE id IN ({$in}) AND origin <> 'website'" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema, ids are integers.
-				$ok = false !== $ok && false !== $wpdb->query( "DELETE FROM `{$block}` WHERE linked_resa_id IN ({$in})" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema, ids are integers.
+			static function () use ( $wpdb, $resa, $block, $ids ): void {
+				$ok = $wpdb->query( $wpdb->prepare( "UPDATE %i SET status = 'cancelled', updated_on = UTC_TIMESTAMP() WHERE id IN (" . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ") AND origin <> 'website'", array_merge( array( $resa ), $ids ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+				$ok = false !== $ok && false !== $wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE linked_resa_id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')', array_merge( array( $block ), $ids ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 				if ( ! $ok ) {
 					throw new \RuntimeException( 'Cancelling iCal copies failed.' );
 				}
@@ -92,7 +92,7 @@ final class Tools {
 		Db::transaction(
 			static function () use ( $wpdb, $resa, $undo, &$back ): void {
 				foreach ( $undo as $id => $status ) {
-					$n = $wpdb->query( $wpdb->prepare( "UPDATE `{$resa}` SET status = %s WHERE id = %d AND status = 'cancelled' AND origin <> 'website'", (string) $status, (int) $id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema only.
+					$n = $wpdb->query( $wpdb->prepare( "UPDATE %i SET status = %s WHERE id = %d AND status = 'cancelled' AND origin <> 'website'", $resa, (string) $status, (int) $id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 					if ( false === $n ) {
 						throw new \RuntimeException( 'Undo failed.' );
 					}
@@ -132,14 +132,14 @@ final class Tools {
 	public static function restore_starting_prices(): void {
 		global $wpdb;
 		$owned = Db::table( Config::TABLE_OWNED );
-		foreach ( (array) $wpdb->get_results( $wpdb->prepare( "SELECT hbook_id, note FROM `{$owned}` WHERE kind = %s", Owned::STARTING_PRICE ), ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Config only.
+		foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT hbook_id, note FROM %i WHERE kind = %s', $owned, Owned::STARTING_PRICE ), ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			if ( null === $row['note'] ) {
 				delete_post_meta( (int) $row['hbook_id'], 'accom_starting_price' );
 			} else {
 				update_post_meta( (int) $row['hbook_id'], 'accom_starting_price', (string) $row['note'] );
 			}
 		}
-		$wpdb->query( $wpdb->prepare( "DELETE FROM `{$owned}` WHERE kind = %s", Owned::STARTING_PRICE ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Config only.
+		$wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE kind = %s', $owned, Owned::STARTING_PRICE ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 	}
 
 	/**

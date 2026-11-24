@@ -36,7 +36,7 @@ final class Bookings {
 	public static function website_since( string $since ): array {
 		global $wpdb;
 		$resa      = Schema::table( 'resa' );
-		$rows      = (array) $wpdb->get_results( $wpdb->prepare( "SELECT id, parent_id, accom_id, accom_num, check_in, check_out, adults, children, price, status, customer_id, alphanum_id, payments_logs, paid, payment_gateway FROM `{$resa}` WHERE origin = %s AND check_out >= %s ORDER BY id", self::ORIGIN, $since ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema only.
+		$rows      = (array) $wpdb->get_results( $wpdb->prepare( 'SELECT id, parent_id, accom_id, accom_num, check_in, check_out, adults, children, price, status, customer_id, alphanum_id, payments_logs, paid, payment_gateway FROM %i WHERE origin = %s AND check_out >= %s ORDER BY id', $resa, self::ORIGIN, $since ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$by_parent = array();
 		foreach ( $rows as $r ) {
 			if ( (int) $r['parent_id'] > 0 ) {
@@ -83,8 +83,8 @@ final class Bookings {
 			return array();
 		}
 		$resa = Schema::table( 'resa' );
-		$in   = implode( ',', array_map( 'intval', $ids ) );
-		return array_values( array_map( 'intval', (array) $wpdb->get_col( "SELECT id FROM `{$resa}` WHERE id IN ({$in})" ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema, ids are integers.
+		$ids  = array_map( 'intval', $ids );
+		return array_values( array_map( 'intval', (array) $wpdb->get_col( $wpdb->prepare( 'SELECT id FROM %i WHERE id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')', array_merge( array( $resa ), $ids ) ) ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 	}
 
 	/**
@@ -198,9 +198,9 @@ final class Bookings {
 			return array();
 		}
 		$table = Schema::table( 'parents_resa' );
-		$in    = implode( ',', array_map( 'intval', $ids ) );
+		$ids   = array_map( 'intval', $ids );
 		$out   = array();
-		foreach ( (array) $wpdb->get_results( "SELECT id, price, customer_id, alphanum_id, payments_logs, paid, payment_gateway FROM `{$table}` WHERE id IN ({$in})", ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema, ids are integers.
+		foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT id, price, customer_id, alphanum_id, payments_logs, paid, payment_gateway FROM %i WHERE id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')', array_merge( array( $table ), $ids ) ), ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$out[ (int) $row['id'] ] = $row;
 		}
 		return $out;
@@ -219,9 +219,8 @@ final class Bookings {
 			return array();
 		}
 		$table = Schema::table( 'customers' );
-		$in    = implode( ',', $ids );
 		$out   = array();
-		foreach ( (array) $wpdb->get_results( "SELECT id, info FROM `{$table}` WHERE id IN ({$in})", ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema, ids are integers.
+		foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT id, info FROM %i WHERE id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')', array_merge( array( $table ), $ids ) ), ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$info                    = json_decode( (string) $row['info'], true );
 			$info                    = is_array( $info ) ? $info : array();
 			$get                     = static function ( string ...$keys ) use ( $info ): string {

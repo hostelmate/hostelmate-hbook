@@ -164,22 +164,18 @@ final class Writer {
 		$season_ids = Owned::season_ids( $seasons );
 		$rate_ids   = self::own_rate_ids( $season_ids );
 		if ( array() !== $season_ids ) {
-			$in = implode( ',', array_map( 'intval', $season_ids ) );
+			$ids = array_map( 'intval', $season_ids );
 			foreach ( array( 'seasons_dates', 'rates_seasons', 'booking_rules_seasons', 'coupons_seasons', 'discounts_seasons' ) as $name ) {
-				$table = Schema::table( $name );
-				self::query( "DELETE FROM `{$table}` WHERE season_id IN ({$in})" );
+				self::ok( $wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE season_id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')', array_merge( array( Schema::table( $name ) ), $ids ) ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			}
-			$table = Schema::table( 'seasons' );
-			self::query( $wpdb->prepare( "DELETE FROM `{$table}` WHERE id IN ({$in}) AND name = %s", Config::SEASON_NAME ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- identifier from Schema, ids are integers.
+			self::ok( $wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ') AND name = %s', array_merge( array( Schema::table( 'seasons' ) ), $ids, array( Config::SEASON_NAME ) ) ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		}
 		if ( array() !== $rate_ids ) {
-			$in = implode( ',', array_map( 'intval', $rate_ids ) );
+			$ids = array_map( 'intval', $rate_ids );
 			foreach ( array( 'rates_accom', 'rates_seasons' ) as $name ) {
-				$table = Schema::table( $name );
-				self::query( "DELETE FROM `{$table}` WHERE rate_id IN ({$in})" );
+				self::ok( $wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE rate_id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')', array_merge( array( Schema::table( $name ) ), $ids ) ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			}
-			$table = Schema::table( 'rates' );
-			self::query( "DELETE FROM `{$table}` WHERE id IN ({$in})" );
+			self::ok( $wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE id IN (' . implode( ',', array_fill( 0, count( $ids ), '%d' ) ) . ')', array_merge( array( Schema::table( 'rates' ) ), $ids ) ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		}
 		self::forget( Owned::SEASON );
 		self::forget( Owned::RATE );
@@ -308,7 +304,7 @@ final class Writer {
 		}
 		if ( $b['from_date'] < $today ) {
 			$table = Schema::table( 'accom_blocked' );
-			self::query( $wpdb->prepare( "UPDATE `{$table}` SET to_date = %s WHERE id = %d AND uid LIKE %s", $today, $b['id'], $wpdb->esc_like( Config::BLOCK_UID_PREFIX ) . '%' ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- identifier from Schema only.
+			self::ok( $wpdb->query( $wpdb->prepare( 'UPDATE %i SET to_date = %s WHERE id = %d AND uid LIKE %s', $table, $today, $b['id'], $wpdb->esc_like( Config::BLOCK_UID_PREFIX ) . '%' ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			return;
 		}
 		self::delete_block( $b['id'] );
@@ -322,9 +318,9 @@ final class Writer {
 	private static function delete_block( int $id ): void {
 		global $wpdb;
 		$table = Schema::table( 'accom_blocked' );
-		self::query( $wpdb->prepare( "DELETE FROM `{$table}` WHERE id = %d AND uid LIKE %s", $id, $wpdb->esc_like( Config::BLOCK_UID_PREFIX ) . '%' ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- identifier from Schema only.
+		self::ok( $wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE id = %d AND uid LIKE %s', $table, $id, $wpdb->esc_like( Config::BLOCK_UID_PREFIX ) . '%' ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$owned = Db::table( Config::TABLE_OWNED );
-		self::query( $wpdb->prepare( "DELETE FROM `{$owned}` WHERE kind = %s AND hbook_id = %d", Owned::BLOCK, $id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- identifier from Config only.
+		self::ok( $wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE kind = %s AND hbook_id = %d', $owned, Owned::BLOCK, $id ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 	}
 
 	/**
@@ -392,13 +388,12 @@ final class Writer {
 	}
 
 	/**
-	 * Runs a write query; throws on failure so the transaction rolls back.
+	 * Checks a write query's result; throws on failure so the transaction rolls back.
 	 *
-	 * @param string $sql Prepared (or integer-only) SQL.
+	 * @param int|bool $result What $wpdb->query() returned.
 	 */
-	private static function query( string $sql ): void {
-		global $wpdb;
-		if ( false === $wpdb->query( $sql ) ) { // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery -- callers prepare; ids are integers.
+	private static function ok( int|bool $result ): void {
+		if ( false === $result ) {
 			throw new \RuntimeException( 'HBook write failed.' );
 		}
 	}
@@ -432,6 +427,6 @@ final class Writer {
 	private static function forget( string $kind ): void {
 		global $wpdb;
 		$owned = Db::table( Config::TABLE_OWNED );
-		self::query( $wpdb->prepare( "DELETE FROM `{$owned}` WHERE kind = %s", $kind ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- identifier from Config only.
+		self::ok( $wpdb->query( $wpdb->prepare( 'DELETE FROM %i WHERE kind = %s', $owned, $kind ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 	}
 }

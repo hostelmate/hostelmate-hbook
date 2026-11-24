@@ -35,8 +35,8 @@ final class Occupancy {
 		global $wpdb;
 		$resa   = Schema::table( 'resa' );
 		$block  = Schema::table( 'accom_blocked' );
-		$r_rows = $wpdb->get_results( $wpdb->prepare( "SELECT id, accom_id, accom_num, check_in, check_out, status, origin, synchro_id FROM `{$resa}` WHERE check_in <= %s AND check_out >= %s", $to, $from ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema only.
-		$b_rows = $wpdb->get_results( $wpdb->prepare( "SELECT id, accom_id, accom_num, from_date, to_date, linked_resa_id, is_prepa_time, uid FROM `{$block}` WHERE from_date <= %s AND to_date >= %s", $to, $from ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema only.
+		$r_rows = $wpdb->get_results( $wpdb->prepare( 'SELECT id, accom_id, accom_num, check_in, check_out, status, origin, synchro_id FROM %i WHERE check_in <= %s AND check_out >= %s', $resa, $to, $from ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$b_rows = $wpdb->get_results( $wpdb->prepare( 'SELECT id, accom_id, accom_num, from_date, to_date, linked_resa_id, is_prepa_time, uid FROM %i WHERE from_date <= %s AND to_date >= %s', $block, $to, $from ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
 		$reservations = array();
 		foreach ( (array) $r_rows as $r ) {

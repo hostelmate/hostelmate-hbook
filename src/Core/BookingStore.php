@@ -35,7 +35,7 @@ final class BookingStore {
 		global $wpdb;
 		$table = Db::table( Config::TABLE_BOOKINGS );
 		$out   = array();
-		foreach ( (array) $wpdb->get_results( "SELECT hbook_resa_id, hm_booking_id, sent_state, state, attempts, next_try_at, last_code, updated_at, failing_since FROM `{$table}`", ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Config only.
+		foreach ( (array) $wpdb->get_results( $wpdb->prepare( 'SELECT hbook_resa_id, hm_booking_id, sent_state, state, attempts, next_try_at, last_code, updated_at, failing_since FROM %i', $table ), ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$out[ (int) $row['hbook_resa_id'] ] = array(
 				'sent'     => self::decode( (string) $row['sent_state'], (string) $row['hm_booking_id'] ),
 				'state'    => (string) $row['state'],
@@ -74,9 +74,9 @@ final class BookingStore {
 		global $wpdb;
 		$table = Db::table( Config::TABLE_BOOKINGS );
 		$uuid  = Ids::uuid4();
-		$wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO `{$table}` (hbook_resa_id, hm_booking_id, sent_state, state, attempts, updated_at) VALUES (%d, %s, %s, %s, 0, UTC_TIMESTAMP())", $resa_id, $uuid, wp_json_encode( BookingPlanner::nothing_sent( $uuid ) ), self::PENDING ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Config only.
+		$wpdb->query( $wpdb->prepare( 'INSERT IGNORE INTO %i (hbook_resa_id, hm_booking_id, sent_state, state, attempts, updated_at) VALUES (%d, %s, %s, %s, 0, UTC_TIMESTAMP())', $table, $resa_id, $uuid, wp_json_encode( BookingPlanner::nothing_sent( $uuid ) ), self::PENDING ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$token = Ids::token();
-		$got   = $wpdb->query( $wpdb->prepare( "UPDATE `{$table}` SET claim_token = %s, claimed_until = DATE_ADD(UTC_TIMESTAMP(), INTERVAL %d SECOND) WHERE hbook_resa_id = %d AND (claimed_until IS NULL OR claimed_until < UTC_TIMESTAMP())", $token, Config::BOOKING_CLAIM_SECONDS, $resa_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Config only.
+		$got   = $wpdb->query( $wpdb->prepare( 'UPDATE %i SET claim_token = %s, claimed_until = DATE_ADD(UTC_TIMESTAMP(), INTERVAL %d SECOND) WHERE hbook_resa_id = %d AND (claimed_until IS NULL OR claimed_until < UTC_TIMESTAMP())', $table, $token, Config::BOOKING_CLAIM_SECONDS, $resa_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		return 1 === $got ? $token : '';
 	}
 
@@ -96,7 +96,8 @@ final class BookingStore {
 		$table = Db::table( Config::TABLE_BOOKINGS );
 		$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
-				"UPDATE `{$table}` SET sent_state = %s, state = %s, attempts = %d, next_try_at = %s, last_code = %s, claim_token = NULL, claimed_until = NULL, updated_at = UTC_TIMESTAMP(), failing_since = IF( %s, COALESCE( failing_since, UTC_TIMESTAMP() ), NULL ) WHERE hbook_resa_id = %d AND claim_token = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- identifier from Config only.
+				'UPDATE %i SET sent_state = %s, state = %s, attempts = %d, next_try_at = %s, last_code = %s, claim_token = NULL, claimed_until = NULL, updated_at = UTC_TIMESTAMP(), failing_since = IF( %s, COALESCE( failing_since, UTC_TIMESTAMP() ), NULL ) WHERE hbook_resa_id = %d AND claim_token = %s',
+				$table,
 				wp_json_encode( $sent ),
 				$state,
 				$attempts,
