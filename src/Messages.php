@@ -183,16 +183,16 @@ final class Messages {
 		switch ( $code ) {
 			case self::REQ_PHP:
 				/* translators: %s: PHP version, e.g. 8.2 */
-				return sprintf( __( 'HostelMate for HBook needs PHP %s or newer.', 'hostelmate-hbook' ), Config::MIN_PHP );
+				return sprintf( __( 'HB-HostelMate needs PHP %s or newer.', 'hostelmate-hbook' ), Config::MIN_PHP );
 			case self::REQ_WP:
 				/* translators: %s: WordPress version, e.g. 6.5 */
-				return sprintf( __( 'HostelMate for HBook needs WordPress %s or newer.', 'hostelmate-hbook' ), Config::MIN_WP );
+				return sprintf( __( 'HB-HostelMate needs WordPress %s or newer.', 'hostelmate-hbook' ), Config::MIN_WP );
 			case self::REQ_MULTISITE:
-				return __( 'HostelMate for HBook connects one website to one property. Activate it on each site, not network-wide.', 'hostelmate-hbook' );
+				return __( 'HB-HostelMate connects one website to one property. Activate it on each site, not network-wide.', 'hostelmate-hbook' );
 			case self::GUARD_CAUGHT:
-				return __( 'An error inside HostelMate for HBook was caught and logged. The website kept working.', 'hostelmate-hbook' );
+				return __( 'An error inside HB-HostelMate was caught and logged. The website kept working.', 'hostelmate-hbook' );
 			case self::DB_UPGRADED:
-				return __( 'HostelMate for HBook updated its tables.', 'hostelmate-hbook' );
+				return __( 'HB-HostelMate updated its tables.', 'hostelmate-hbook' );
 			case self::SETTINGS_BAD_EMAIL:
 				return __( 'That alert email address is not valid. The old one was kept.', 'hostelmate-hbook' );
 			case self::SETTINGS_BAD_METHOD:
@@ -201,7 +201,7 @@ final class Messages {
 				/* translators: %d: number of problems */
 				return __( '%d problems need your attention', 'hostelmate-hbook' );
 			case self::ALERT_EMAIL_FOOTER:
-				return __( 'Open HostelMate in your WordPress admin to see what to do:', 'hostelmate-hbook' );
+				return __( 'Open HB-HostelMate in your WordPress admin to see what to do:', 'hostelmate-hbook' );
 			case self::CONNECTED:
 				return __( 'Connected to HostelMate.', 'hostelmate-hbook' );
 			case self::CONNECT_BAD_KEY:

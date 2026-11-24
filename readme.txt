@@ -1,4 +1,4 @@
-=== HostelMate for HBook ===
+=== HB-HostelMate ===
 Tags: hostel, booking, availability, prices, reservations
 Requires at least: 6.5
 Tested up to: 7.1

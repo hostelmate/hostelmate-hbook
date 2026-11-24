@@ -68,15 +68,19 @@ final class ActionRouter {
 		}
 
 		$codes = $handler( $input );
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'      => $page,
-					'hm_notice' => implode( ',', $codes ),
-				),
-				admin_url( 'admin.php' )
-			)
+		$args  = array(
+			'page'      => $page,
+			'hm_notice' => implode( ',', $codes ),
 		);
+		// During setup there is one page (Menu::register): every action returns to it,
+		// and a check stays on step 3 so its result is seen before moving on.
+		if ( ! Setup::done() ) {
+			$args['page'] = Config::PAGE_OVERVIEW;
+			if ( Config::ACTION_CHECK_NOW === $action ) {
+				$args['step'] = Setup::CHECK;
+			}
+		}
+		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
 		exit;
 	}
 }

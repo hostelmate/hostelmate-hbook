@@ -54,6 +54,7 @@ final class Plugin {
 		}
 	}
 
+
 	/** The plugin's own translations (the guest message ships in Spanish). */
 	public static function load_translations(): void {
 		load_plugin_textdomain( Config::TEXT_DOMAIN, false, dirname( plugin_basename( HOSTELMATE_HBOOK_FILE ) ) . '/languages' );
@@ -63,7 +64,7 @@ final class Plugin {
 	public static function privacy_text(): void {
 		if ( function_exists( 'wp_add_privacy_policy_content' ) ) {
 			wp_add_privacy_policy_content(
-				'HostelMate for HBook',
+				'HB-HostelMate',
 				'<p>' . esc_html__( 'When you book on this website, your booking (dates, room, price, payments) and your name, email address, phone number and country are sent to HostelMate, the system this property uses to manage its bookings. HostelMate keeps them to run your stay.', 'hostelmate-hbook' ) . '</p>'
 			);
 		}

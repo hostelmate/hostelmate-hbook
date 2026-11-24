@@ -21,7 +21,8 @@ final class ActivityPage {
 	public static function render(): void {
 		View::guard_page();
 		$rows = Log::recent( Config::ACTIVITY_PAGE_SIZE );
-		echo '<div class="wrap"><h1>' . esc_html__( 'HostelMate activity', 'hostelmate-hbook' ) . '</h1>';
+		echo '<div class="wrap">';
+		View::heading( __( 'HB-HostelMate activity', 'hostelmate-hbook' ) );
 		if ( array() === $rows ) {
 			echo '<p>' . esc_html__( 'Nothing has happened yet.', 'hostelmate-hbook' ) . '</p></div>';
 			return;

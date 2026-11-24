@@ -42,27 +42,27 @@ final class GoLive {
 		return array(
 			array(
 				'ok'   => Secret::has() && time() - (int) State::get( 'last_fetch_ok', 0 ) < Config::PREVIEW_FRESH_FOR,
-				'text' => __( 'HostelMate answered in the last 30 minutes with this key.', 'hostelmate-hbook' ),
+				'text' => __( 'HostelMate answered in the last 30 minutes.', 'hostelmate-hbook' ),
 			),
 			array(
 				'ok'   => array() === Schema::problems(),
-				'text' => __( 'HBook\'s tables are as expected (InnoDB).', 'hostelmate-hbook' ),
+				'text' => __( 'Your website\'s booking tables are in order.', 'hostelmate-hbook' ),
 			),
 			array(
 				'ok'   => array() !== $mapping && array() === $errors,
-				'text' => __( 'Rooms are matched, with no errors.', 'hostelmate-hbook' ),
+				'text' => __( 'Rooms are matched (step 2).', 'hostelmate-hbook' ),
 			),
 			array(
 				'ok'   => $fresh,
-				'text' => __( 'A preview from the last 30 minutes (press Check now).', 'hostelmate-hbook' ),
+				'text' => __( 'The check ran in the last 30 minutes (step 3).', 'hostelmate-hbook' ),
 			),
 			array(
 				'ok'   => $fresh && array() === (array) $preview['foreign_high'],
-				'text' => __( 'No other plugin writes high-priority seasons (switch off automatic last-minute prices).', 'hostelmate-hbook' ),
+				'text' => __( 'No other plugin changes your prices (turn off any automatic last-minute prices).', 'hostelmate-hbook' ),
 			),
 			array(
 				'ok'   => $fresh && 0 === (int) $preview['mismatch_total'],
-				'text' => __( 'No mismatches: HostelMate knows every booking and block HBook holds.', 'hostelmate-hbook' ),
+				'text' => __( 'HostelMate knows every booking on your matched rooms.', 'hostelmate-hbook' ),
 			),
 			array(
 				'ok'   => 0 === $ical || $ical_confirmed,

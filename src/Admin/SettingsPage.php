@@ -21,7 +21,8 @@ final class SettingsPage {
 	public static function render(): void {
 		View::guard_page();
 		$settings = Settings::all();
-		echo '<div class="wrap"><h1>' . esc_html__( 'HostelMate settings', 'hostelmate-hbook' ) . '</h1>';
+		echo '<div class="wrap">';
+		View::heading( __( 'HB-HostelMate settings', 'hostelmate-hbook' ) );
 		View::action_notices();
 
 		self::key_section();

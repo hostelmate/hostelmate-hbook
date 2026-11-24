@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name:       HostelMate for HBook
+ * Plugin Name:       HB-HostelMate
  * Description:       Keeps HBook's prices and availability in step with HostelMate, and sends website bookings to HostelMate.
  * Version:           1.0.0
  * Requires at least: 6.5

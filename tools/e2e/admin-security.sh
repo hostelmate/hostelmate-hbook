@@ -60,7 +60,7 @@ has "$body" "<script>alert(1)" && fail "notice code injected HTML" || ok "unknow
 has "$body" "Connected to HostelMate." && ok "known notice code is shown" || fail "known notice missing"
 
 "$WPRUN" "$SNIP/evil-property.php" >/dev/null
-body=$(curl -s -b "$A" "$BASE/wp-admin/admin.php?page=hostelmate-hbook")
+body=$(curl -s -b "$A" "$BASE/wp-admin/admin.php?page=hostelmate-hbook&step=connect")
 has "$body" "<img src=x onerror" && fail "property name printed as HTML" || ok "property name with HTML is escaped"
 has "$body" "&lt;img src=x onerror" && ok "escaped text is visible" || fail "escaped text missing"
 "$WPRUN" "$SNIP/cleanup.php" >/dev/null

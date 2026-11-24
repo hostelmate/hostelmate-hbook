@@ -33,8 +33,8 @@ final class Notices {
 			return;
 		}
 		/* translators: %d: number of open problems */
-		$text = sprintf( _n( 'HostelMate: %d problem needs you.', 'HostelMate: %d problems need you.', $red, 'hostelmate-hbook' ), $red );
-		echo '<div class="notice notice-error"><p>' . esc_html( $text ) . ' <a href="' . esc_url( View::page_url( Config::PAGE_OVERVIEW ) ) . '">' . esc_html__( 'Open HostelMate', 'hostelmate-hbook' ) . '</a></p></div>';
+		$text = sprintf( _n( 'HB-HostelMate: %d problem needs you.', 'HB-HostelMate: %d problems need you.', $red, 'hostelmate-hbook' ), $red );
+		echo '<div class="notice notice-error"><p>' . esc_html( $text ) . ' <a href="' . esc_url( View::page_url( Config::PAGE_OVERVIEW ) ) . '">' . esc_html__( 'Open HB-HostelMate', 'hostelmate-hbook' ) . '</a></p></div>';
 	}
 
 	/** Every open alert, red first (Overview). */

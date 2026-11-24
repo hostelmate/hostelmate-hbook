@@ -19,16 +19,27 @@ defined( 'ABSPATH' ) || exit;
 
 final class RoomsPage {
 
-	/** Prints the page. */
+	/** Prints the page (after setup; during setup the same table is step 2). */
 	public static function render(): void {
 		View::guard_page();
-		echo '<div class="wrap"><h1>' . esc_html__( 'Rooms', 'hostelmate-hbook' ) . '</h1>';
+		echo '<div class="wrap">';
+		View::heading( __( 'Rooms', 'hostelmate-hbook' ) );
 		View::action_notices();
+		echo '<div>';
+		echo '<p>' . esc_html__( 'Each room and bed of your website points to the same room or bed in HostelMate.', 'hostelmate-hbook' ) . '</p>';
+		self::matching( __( 'Save rooms', 'hostelmate-hbook' ) );
+		echo '</div></div>';
+	}
 
+	/**
+	 * The matching table with its save button. Used by Setup (step 2) and by this page.
+	 *
+	 * @param string $button Text of the save button (translated).
+	 */
+	public static function matching( string $button ): void {
 		$property = State::get( 'property' );
 		if ( ! is_array( $property ) ) {
 			View::notice( 'warning', Messages::text( Messages::CONNECT_FIRST ) );
-			echo '<p><a class="button button-primary" href="' . esc_url( View::page_url( Config::PAGE_OVERVIEW ) ) . '">' . esc_html__( 'Connect', 'hostelmate-hbook' ) . '</a></p></div>';
 			return;
 		}
 
@@ -36,49 +47,73 @@ final class RoomsPage {
 		$mapping = Mapping::get();
 		$chosen  = self::chosen( $mapping );
 		self::issues( $mapping, $property, $units );
-
-		if ( array() === $mapping ) {
+		$suggested = array() === $mapping;
+		if ( $suggested ) {
 			$chosen = Mapping::suggest( $property, $units );
-			View::notice( 'info', __( 'Matches below are suggested from the names. Check each one, then save.', 'hostelmate-hbook' ) );
 		}
 
-		echo '<p>' . esc_html__( 'Match every HBook room or bed to the same room or bed in HostelMate. Rooms left "not matched" keep their own HBook prices and dates.', 'hostelmate-hbook' ) . '</p>';
+		$total   = 0;
+		$matched = 0;
+		foreach ( $units as $accom ) {
+			foreach ( $accom['units'] as $num ) {
+				++$total;
+				$matched += isset( $chosen[ $accom['id'] . ':' . $num ] ) && '' !== $chosen[ $accom['id'] . ':' . $num ] ? 1 : 0;
+			}
+		}
+		/* translators: 1: matched, 2: all */
+		echo '<p><strong>' . esc_html( sprintf( __( '%1$d of %2$d matched', 'hostelmate-hbook' ), $matched, $total ) ) . '</strong>';
+		if ( $suggested ) {
+			echo ' · ' . esc_html__( 'suggested from the names, not saved yet', 'hostelmate-hbook' );
+		}
+		echo '</p>';
+
 		View::form_open( Config::ACTION_SAVE_MAPPING );
-		echo '<table class="widefat striped" style="max-width:900px"><thead><tr><th scope="col">' . esc_html__( 'HBook', 'hostelmate-hbook' ) . '</th><th scope="col">' . esc_html__( 'HostelMate', 'hostelmate-hbook' ) . '</th></tr></thead><tbody>';
-		$options = self::options( $property );
+		echo '<table class="widefat striped"><thead><tr><th scope="col">' . esc_html__( 'On your website (HBook)', 'hostelmate-hbook' ) . '</th><th scope="col">' . esc_html__( 'In HostelMate', 'hostelmate-hbook' ) . '</th></tr></thead><tbody>';
+		$groups = self::options( $property );
 		foreach ( $units as $accom ) {
 			foreach ( $accom['units'] as $num ) {
 				$key   = $accom['id'] . ':' . $num;
 				$label = $accom['name'] . ( count( $accom['units'] ) > 1 ? ' · ' . $num : '' );
-				echo '<tr><td><label for="hm-map-' . esc_attr( $key ) . '"><strong>' . esc_html( $label ) . '</strong></label><br><span class="description">' . esc_html( $accom['title'] ) . '</span></td><td>';
+				$value = $chosen[ $key ] ?? '';
+				echo '<tr><td><label for="hm-map-' . esc_attr( $key ) . '"><strong>' . esc_html( $label ) . '</strong></label></td><td>';
 				echo '<select id="hm-map-' . esc_attr( $key ) . '" name="mapping[' . esc_attr( $key ) . ']">';
-				echo '<option value="">' . esc_html__( '— not matched —', 'hostelmate-hbook' ) . '</option>';
-				foreach ( $options as $value => $text ) {
-					echo '<option value="' . esc_attr( $value ) . '"' . selected( $chosen[ $key ] ?? '', $value, false ) . '>' . esc_html( $text ) . '</option>';
+				echo '<option value="">' . esc_html__( 'Not in HostelMate (keep HBook\'s own prices)', 'hostelmate-hbook' ) . '</option>';
+				foreach ( $groups as $room => $options ) {
+					echo '<optgroup label="' . esc_attr( $room ) . '">';
+					foreach ( $options as $option => $text ) {
+						echo '<option value="' . esc_attr( $option ) . '"' . selected( $value, $option, false ) . '>' . esc_html( $text ) . '</option>';
+					}
+					echo '</optgroup>';
 				}
 				echo '</select></td></tr>';
 			}
 		}
 		echo '</tbody></table>';
-		View::form_close( __( 'Save rooms', 'hostelmate-hbook' ) );
-		echo '</div>';
+		View::form_close( $button, 'button-hero' );
+
+		echo '<details><summary>' . esc_html__( 'A room is missing from the HostelMate list?', 'hostelmate-hbook' ) . '</summary>';
+		echo '<p>' . esc_html__( 'Add it in HostelMate first, then read the rooms again here.', 'hostelmate-hbook' ) . '</p>';
+		View::form_open( Config::ACTION_REFRESH_ROOMS );
+		View::form_close( __( 'Read rooms from HostelMate again', 'hostelmate-hbook' ), 'button-secondary' );
+		echo '</details>';
 	}
 
 	/**
-	 * "roomId|bedId" → label, for every HostelMate bed or whole room.
+	 * HostelMate room name → ["roomId|bedId" → label], for every bed or whole room.
 	 *
 	 * @param array<string, mixed> $property Normalised /property answer.
-	 * @return array<string, string>
+	 * @return array<string, array<string, string>>
 	 */
 	private static function options( array $property ): array {
 		$out = array();
 		foreach ( (array) $property['rooms'] as $room ) {
+			$group = (string) $room['name'];
 			if ( 'hybrid' === $room['sell_mode'] ) {
-				$out[ $room['id'] . '|' ] = $room['name'] . ' · ' . __( 'whole room', 'hostelmate-hbook' );
+				$out[ $group ][ $room['id'] . '|' ] = $room['name'] . ' · ' . __( 'whole room', 'hostelmate-hbook' );
 				continue;
 			}
 			foreach ( (array) $room['beds'] as $bed ) {
-				$out[ $room['id'] . '|' . $bed['id'] ] = $room['name'] . ' · ' . ( '' !== $bed['name'] ? $bed['name'] : __( 'unnamed bed', 'hostelmate-hbook' ) );
+				$out[ $group ][ $room['id'] . '|' . $bed['id'] ] = $room['name'] . ' · ' . ( '' !== $bed['name'] ? $bed['name'] : __( 'unnamed bed', 'hostelmate-hbook' ) );
 			}
 		}
 		return $out;

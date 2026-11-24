@@ -112,6 +112,8 @@ final class Actions {
 		set_transient( Config::TRANSIENT_ISSUES . get_current_user_id(), $issues, 120 );
 		$errors = array_filter( $issues, static fn( array $i ): bool => Mapping::LEVEL_ERROR === $i['level'] );
 		if ( array() === $errors ) {
+			// Setup step 3 needs a check that ran after this (Admin\Setup::finished).
+			State::set( 'rooms_saved_at', time() );
 			Log::write( Config::LOG_LEVEL_INFO, Messages::MAPPING_SAVED );
 			return array( Messages::MAPPING_SAVED );
 		}
