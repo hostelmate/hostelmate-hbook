@@ -66,7 +66,8 @@ final class BookingRunner {
 	 * @param int $budget Seconds this run may take.
 	 */
 	public static function run( int $budget = Config::BOOKING_RUN_SECONDS ): int {
-		if ( Config::MODE_LIVE !== Settings::mode() || ! Db::lock( Config::LOCK_BOOKINGS ) ) {
+		// Different currencies: wait (the bookings stay unsent and go once they match), never send wrong amounts.
+		if ( Config::MODE_LIVE !== Settings::mode() || ! SyncRunner::currency_ok() || ! Db::lock( Config::LOCK_BOOKINGS ) ) {
 			return 0;
 		}
 		try {

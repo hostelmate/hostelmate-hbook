@@ -430,6 +430,15 @@ final class SyncRunner {
 		return $out;
 	}
 
+	/**
+	 * Safe to exchange money amounts: the currencies match as far as this site knows, and the
+	 * last answer from HostelMate didn't say otherwise (its currency can change after connecting).
+	 * Used by the booking run too, so a booking's prices are never sent in the wrong currency.
+	 */
+	public static function currency_ok(): bool {
+		return self::currency_matches() && ! in_array( Messages::SYNC_CURRENCY, array_column( Alerts::list(), 'code' ), true );
+	}
+
 	/** HostelMate's currency (from the last /property) equals HBook's. */
 	private static function currency_matches(): bool {
 		$property = State::get( 'property' );

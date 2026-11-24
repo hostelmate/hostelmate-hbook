@@ -258,7 +258,7 @@ final class Messages {
 			case self::SYNC_NO_MAPPING:
 				return __( 'No rooms are matched yet.', 'hostelmate-hbook' );
 			case self::SYNC_CURRENCY:
-				return __( 'HostelMate and HBook use different currencies. Nothing is changed until they match.', 'hostelmate-hbook' );
+				return __( 'HostelMate and HBook use different currencies. Nothing is changed on your website, and website bookings wait, until they match.', 'hostelmate-hbook' );
 			case self::SYNC_HBOOK_UNTESTED:
 				return __( 'HBook was updated to a version this plugin hasn\'t been tested on yet. Its tables still look the same, so everything keeps running. Tell HostelMate support if anything looks wrong.', 'hostelmate-hbook' );
 			case self::SYNC_TIMEZONE:
