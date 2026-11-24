@@ -1,0 +1,8 @@
+# Left out of the plugin zip (git archive): dev tools, tests and their configs.
+/tests              export-ignore
+/tools              export-ignore
+/phpcs.xml.dist     export-ignore
+/phpstan.neon.dist  export-ignore
+/phpunit.xml.dist   export-ignore
+/.gitignore         export-ignore
+/.gitattributes     export-ignore

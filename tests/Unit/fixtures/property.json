@@ -1,0 +1,10 @@
+{
+  "property": {"id": "5F0C7A52-3B1E-4D8A-9C61-2E4B7D90A1F3", "name": "Test Hostel", "currency": "mxn", "email": "", "address": "", "city": "", "timezone": "America/Mexico_City", "postal_code": "", "country": "MX", "description": "", "created_at": null, "updated_at": null},
+  "stats": {"total_rooms": 2, "total_beds": 3},
+  "rooms": [
+    {"id": "8a3d2c19-6e5f-4b70-a1d2-93c4e5f60718", "name": "Mixed dorm", "description": "", "status": true, "capacity": null, "max_available_beds": null, "channel_manager_id": "0d6e2f4a-7b31-4c85-9e2a-5f18c3b7d640", "channel_manager_rate": "", "room_sell": "per_person", "room_sell_count": null, "hybrid_parent_id": null, "bed_count": 2,
+     "beds": [{"id": "aaaaaaaa-0000-4000-8000-000000000074", "name": "N°74", "is_upper": false}, {"id": "aaaaaaaa-0000-4000-8000-000000000076", "name": null, "is_upper": true}]},
+    {"id": "c4b1e7d0-2a9f-4e36-8b55-71d0f3a2e9c4", "name": "Café", "description": "", "status": false, "capacity": 0, "max_available_beds": null, "channel_manager_id": "", "channel_manager_rate": "", "room_sell": "per_room", "room_sell_count": 2, "hybrid_parent_id": null, "bed_count": 1,
+     "beds": [{"id": "bbbbbbbb-0000-4000-8000-000000000001", "name": "B1", "is_upper": false}]}
+  ]
+}

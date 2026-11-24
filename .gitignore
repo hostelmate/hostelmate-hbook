@@ -1,0 +1,23 @@
+# Never commit client data or secrets.
+*.sql
+*.sql.gz
+*.wpress
+snapshot/
+*.env
+.env*
+
+# Dev tools are downloaded by tools/install-dev.sh, not committed.
+/tools/bin/
+/tools/vendor/
+
+# Build output.
+/build/
+/dist/
+
+# OS / editor.
+.DS_Store
+.idea/
+.vscode/
+
+# Test runner cache.
+.phpunit.result.cache

@@ -1,0 +1,12 @@
+parameters:
+	level: 8
+	# The code re-checks data at runtime on purpose (it can arrive malformed), so doc types are not trusted.
+	treatPhpDocTypesAsCertain: false
+	paths:
+		- hostelmate-hbook.php
+		- uninstall.php
+		- src
+	scanFiles:
+		- tools/vendor/wp-stubs/wordpress-stubs.php
+	bootstrapFiles:
+		- tools/phpstan-bootstrap.php
