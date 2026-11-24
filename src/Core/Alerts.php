@@ -18,6 +18,9 @@ defined( 'ABSPATH' ) || exit;
 
 final class Alerts {
 
+	/** A red alert waits to be emailed at the end of this request (send_due). */
+	private static bool $pending = false;
+
 	/**
 	 * Opens an alert (or keeps it open) and emails it when due.
 	 *
@@ -44,8 +47,29 @@ final class Alerts {
 			);
 		}
 		$all[ $id ]['level'] = $level;
+		self::$pending       = self::$pending || self::email_due( $all[ $id ] );
+		self::save( $all );
+	}
 
-		if ( self::email_due( $all[ $id ] ) && self::send_email( $all[ $id ] ) ) {
+	/**
+	 * Runs at the end of every request (Plugin's 'shutdown' hook; the booking run that ends a page request
+	 * calls it again when it is done): one email listing every red alert not emailed in the last Config::ALERT_EMAIL_EVERY,
+	 * grouped by problem, within the daily budget. One email per request, not one per alert, so a burst
+	 * (13 website bookings on rooms that aren't matched) can't use up the day's budget and hide a later
+	 * overbooking. Outside cron it does nothing, and reads nothing, unless an alert was opened in this
+	 * request; every cron run (5 minutes) also sends what is still owed, so nothing waits longer.
+	 */
+	public static function send_due(): void {
+		if ( ! self::$pending && ! wp_doing_cron() ) {
+			return;
+		}
+		self::$pending = false;
+		$all           = self::all();
+		$due           = array_filter( $all, array( self::class, 'email_due' ) );
+		if ( array() === $due || ! self::send_email( array_values( $due ) ) ) {
+			return;
+		}
+		foreach ( array_keys( $due ) as $id ) {
 			$all[ $id ]['last_email'] = time();
 		}
 		self::save( $all );
@@ -139,20 +163,29 @@ final class Alerts {
 	}
 
 	/**
-	 * Plain-text email to the alert address, within the daily budget.
+	 * One plain-text email to the alert address for these alerts, grouped by problem, within the daily budget.
 	 *
-	 * @param array{code: string, ref: string} $alert The alert.
+	 * @param list<array{code: string, ref: string}> $alerts The alerts.
 	 */
-	private static function send_email( array $alert ): bool {
+	private static function send_email( array $alerts ): bool {
 		$to = Settings::alert_email();
 		if ( ! Validate::is_email( $to ) || ! self::take_email_budget() ) {
 			return false;
 		}
-		$site    = wp_strip_all_tags( (string) get_bloginfo( 'name' ) );
-		$text    = Messages::text( $alert['code'] );
-		$subject = self::one_line( '[HostelMate] ' . $site . ': ' . $text );
-		$body    = $text . ( '' !== $alert['ref'] ? "\n\n" . $alert['ref'] : '' )
-			. "\n\n" . Messages::text( Messages::ALERT_EMAIL_FOOTER ) . "\n" . admin_url( 'admin.php?page=' . Config::MENU_SLUG );
+		$by_code = array();
+		foreach ( $alerts as $a ) {
+			$by_code[ $a['code'] ][] = $a['ref'];
+		}
+		$body = '';
+		foreach ( $by_code as $code => $refs ) {
+			$refs  = array_values( array_filter( $refs, static fn( string $r ): bool => '' !== $r ) );
+			$body .= Messages::text( (string) $code ) . ( array() === $refs ? '' : "\n" . implode( "\n", array_slice( $refs, 0, Config::ALERT_EMAIL_MAX_REFS ) ) ) . ( count( $refs ) > Config::ALERT_EMAIL_MAX_REFS ? "\n…" : '' ) . "\n\n";
+		}
+		$site = wp_strip_all_tags( (string) get_bloginfo( 'name' ) );
+		/* translators: %d: number of problems */
+		$about   = 1 === count( $by_code ) ? Messages::text( (string) array_key_first( $by_code ) ) : sprintf( Messages::text( Messages::ALERT_EMAIL_MANY ), count( $by_code ) );
+		$subject = self::one_line( '[HostelMate] ' . $site . ': ' . $about );
+		$body   .= Messages::text( Messages::ALERT_EMAIL_FOOTER ) . "\n" . admin_url( 'admin.php?page=' . Config::MENU_SLUG );
 		return (bool) wp_mail( $to, mb_substr( $subject, 0, 150 ), $body );
 	}
 

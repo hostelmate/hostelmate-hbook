@@ -29,6 +29,7 @@ final class Messages {
 
 	// Alert emails.
 	public const ALERT_EMAIL_FOOTER = 'alert_email_footer';
+	public const ALERT_EMAIL_MANY   = 'alert_email_many';
 
 	// Admin action results (shown once after the action).
 	public const CONNECTED           = 'connected';
@@ -189,6 +190,9 @@ final class Messages {
 				return __( 'That alert email address is not valid. The old one was kept.', 'hostelmate-hbook' );
 			case self::SETTINGS_BAD_METHOD:
 				return __( 'A payment method must be 1 to 100 characters of plain text. The old one was kept.', 'hostelmate-hbook' );
+			case self::ALERT_EMAIL_MANY:
+				/* translators: %d: number of problems */
+				return __( '%d problems need your attention', 'hostelmate-hbook' );
 			case self::ALERT_EMAIL_FOOTER:
 				return __( 'Open HostelMate in your WordPress admin to see what to do:', 'hostelmate-hbook' );
 			case self::CONNECTED:

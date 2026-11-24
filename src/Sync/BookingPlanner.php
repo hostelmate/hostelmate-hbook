@@ -184,7 +184,11 @@ final class BookingPlanner {
 	}
 
 	/**
-	 * One payment per HBook entry, and one refund per refunded entry (patched if the refund grows).
+	 * Wanted vs sent, one HostelMate payment per HBook entry (Bookings::payments): a positive entry is
+	 * income ('p<id>'), a negative one a refund ('p<id>r', outgoing; the sign is in the ref, so an id HBook
+	 * reuses after a delete never turns income into a refund). New ones are added; one whose amount
+	 * changed is patched; one HBook no longer has (the owner deleted a payment entered by mistake) is
+	 * patched to 0, never deleted, so HostelMate keeps the history and holds the same money as HBook.
 	 *
 	 * @param Booking               $booking The booking.
 	 * @param Sent                  $sent    What was sent.
@@ -192,46 +196,58 @@ final class BookingPlanner {
 	 * @return list<Op>
 	 */
 	private static function payment_ops( array $booking, array $sent, array $methods ): array {
-		$ops = array();
+		$wanted = array();
 		foreach ( $booking['payments'] as $p ) {
 			$method = $methods[ in_array( $p['gateway'], array( 'stripe', 'paypal' ), true ) ? $p['gateway'] : 'other' ] ?? 'Cash';
 			$ref    = 'p' . $p['ref'];
-			if ( $p['amount'] > 0 && ! isset( $sent['payments'][ $ref ] ) ) {
+			if ( $p['amount'] > 0 ) {
+				$wanted[ $ref ] = array( $p['amount'], 'income', $method );
+			} elseif ( $p['amount'] < 0 ) {
+				$wanted[ $ref . 'r' ] = array( -$p['amount'], 'outgoing', $method );
+			}
+		}
+		$ops = array();
+		foreach ( $wanted as $ref => list( $amount, $type, $method ) ) {
+			if ( ! isset( $sent['payments'][ $ref ] ) ) {
 				$ops[] = self::op(
 					self::ADD_PAYMENT,
 					array(
 						'ref'    => $ref,
-						'amount' => $p['amount'],
-						'type'   => 'income',
+						'amount' => $amount,
+						'type'   => $type,
 						'method' => $method,
 						'name'   => self::payment_name( $booking, $ref ),
 					)
 				);
+			} elseif ( $sent['payments'][ $ref ]['amount'] !== $amount ) {
+				$ops[] = self::patch_payment( $sent, $ref, $amount );
 			}
-			$refund = $ref . 'r';
-			if ( $p['refunded'] > 0 && ! isset( $sent['payments'][ $refund ] ) ) {
-				$ops[] = self::op(
-					self::ADD_PAYMENT,
-					array(
-						'ref'    => $refund,
-						'amount' => $p['refunded'],
-						'type'   => 'outgoing',
-						'method' => $method,
-						'name'   => self::payment_name( $booking, $refund ),
-					)
-				);
-			} elseif ( isset( $sent['payments'][ $refund ] ) && $sent['payments'][ $refund ]['amount'] !== $p['refunded'] ) {
-				$ops[] = self::op(
-					self::PATCH_PAYMENT,
-					array(
-						'ref'    => $refund,
-						'hm_id'  => $sent['payments'][ $refund ]['hm_id'],
-						'amount' => $p['refunded'],
-					)
-				);
+		}
+		foreach ( $sent['payments'] as $ref => $was ) {
+			if ( ! isset( $wanted[ $ref ] ) && 0 !== $was['amount'] ) {
+				$ops[] = self::patch_payment( $sent, $ref, 0 );
 			}
 		}
 		return $ops;
+	}
+
+	/**
+	 * A payment HostelMate already has, set to a new amount.
+	 *
+	 * @param Sent   $sent   What was sent.
+	 * @param string $ref    Payment ref.
+	 * @param int    $amount Minor units.
+	 * @return Op
+	 */
+	private static function patch_payment( array $sent, string $ref, int $amount ): array {
+		return self::op(
+			self::PATCH_PAYMENT,
+			array(
+				'ref'    => $ref,
+				'hm_id'  => $sent['payments'][ $ref ]['hm_id'],
+				'amount' => $amount,
+			)
+		);
 	}
 
 	/**

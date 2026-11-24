@@ -12,6 +12,7 @@ namespace HostelMate\HBook\Sync;
 
 use HostelMate\HBook\Config;
 use HostelMate\HBook\Core\Alerts;
+use HostelMate\HBook\Core\BookingStore;
 use HostelMate\HBook\Core\Clock;
 use HostelMate\HBook\Core\Db;
 use HostelMate\HBook\Core\Log;
@@ -276,7 +277,7 @@ final class SyncRunner {
 			'seasons'     => $seasons,
 			'own_seasons' => Owned::season_ids( $seasons ),
 			'rates'       => Prices::rates(),
-			'rows'        => Occupancy::read( $today, Clock::add_days( $end, 1 ) ),
+			'rows'        => Occupancy::read( $today, Clock::add_days( $end, 1 ) ) + array( 'created' => BookingStore::created_ids() ),
 		);
 	}
 

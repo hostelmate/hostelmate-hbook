@@ -109,6 +109,7 @@ final class Config {
 	// Alerts.
 	public const ALERT_EMAIL_EVERY    = DAY_IN_SECONDS;
 	public const ALERT_EMAILS_PER_DAY = 10;
+	public const ALERT_EMAIL_MAX_REFS = 50; // Booking numbers or rooms listed per problem in one email.
 	public const ALERT_LEVEL_RED      = 'red';
 	public const ALERT_LEVEL_AMBER    = 'amber';
 	public const ALERT_REF_MAX_LEN    = 64;

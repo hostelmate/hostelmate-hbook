@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace HostelMate\HBook;
 
+use HostelMate\HBook\Core\Alerts;
 use HostelMate\HBook\Admin\ActionRouter;
 use HostelMate\HBook\Admin\Menu;
 use HostelMate\HBook\Admin\Notices;
@@ -34,6 +35,7 @@ final class Plugin {
 		add_action( Config::CRON_SYNC, Guard::wrap( array( Scheduler::class, 'sync' ) ) );
 		add_action( Config::CRON_BOOKINGS, Guard::wrap( array( Scheduler::class, 'bookings' ) ) );
 		add_action( Config::CRON_DAILY, Guard::wrap( array( Scheduler::class, 'daily' ) ) );
+		add_action( 'shutdown', Guard::wrap( array( Alerts::class, 'send_due' ) ), PHP_INT_MAX ); // The booking run at the end of a page sends its own (BookingRunner::soon).
 
 		// HBook booking changes → a booking run at the end of the request.
 		\HostelMate\HBook\HBook\Hooks::register();

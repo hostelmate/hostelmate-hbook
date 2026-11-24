@@ -49,6 +49,21 @@ final class BookingStore {
 	}
 
 	/**
+	 * HBook reservation ids the plugin has created in HostelMate.
+	 *
+	 * @return list<int>
+	 */
+	public static function created_ids(): array {
+		$out = array();
+		foreach ( self::all() as $id => $row ) {
+			if ( true === ( $row['sent']['created'] ?? false ) ) {
+				$out[] = $id;
+			}
+		}
+		return $out;
+	}
+
+	/**
 	 * Claims a booking for this run (creating its row with a fresh HostelMate id if needed).
 	 * Returns the claim token, or '' when another run holds it.
 	 *

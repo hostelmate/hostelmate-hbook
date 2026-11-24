@@ -163,6 +163,36 @@ final class PlannersTest extends TestCase {
 		$this->assertArrayNotHasKey( '20:1', $plan['wanted'] ); // Nothing to block: the unit is already taken.
 	}
 
+	public function test_website_bookings_still_to_send_are_not_mismatches(): void {
+		// Found live 2026-11-24: before go-live no website booking is in HostelMate yet, so every one of them was a
+		// mismatch, and go-live (which sends them) was blocked for good.
+		$units = array( self::DORM => array( '74:1', '76:1' ) );
+		$web   = array( 'accom_id' => 74, 'accom_num' => 1, 'check_in' => '2026-12-03', 'check_out' => '2026-12-05' ); // resa:1, website.
+		$ota   = array( 'accom_id' => 76, 'accom_num' => 1, 'check_in' => '2026-12-04', 'check_out' => '2026-12-05', 'origin' => 'airbnb' ); // resa:2.
+		$hm    = self::hm( self::DORM, 2 ); // HostelMate knows neither.
+
+		// Without the list of created bookings (any caller but SyncRunner::context()): every booking counts, as before.
+		$plan = BlockPlanner::plan( self::nights(), $units, $hm, self::rows( array( $web, $ota ) ), false, array() );
+		$this->assertSame( array( '2026-12-03', '2026-12-04' ), array_column( $plan['mismatches'], 'night' ) );
+
+		// Not created yet: the website booking is the booking loop's job. The iCal copy on the 4th still is a mismatch,
+		// missing one unit, and only it is named.
+		$plan = BlockPlanner::plan( self::nights(), $units, $hm, self::rows( array( $web, $ota ) ) + array( 'created' => array() ), false, array() );
+		$this->assertSame( array( '2026-12-04' ), array_column( $plan['mismatches'], 'night' ) );
+		$this->assertSame( 1, $plan['mismatches'][0]['missing'] );
+		$this->assertSame( array( 'resa:2' ), $plan['mismatches'][0]['candidates'] );
+		$this->assertSame( array(), $plan['wanted'] ); // Blocks are unchanged: HBook still holds the unit.
+
+		// Created in HostelMate, yet HostelMate counts the bed free (staff cancelled or moved it there, scenario 33): a mismatch again.
+		$plan = BlockPlanner::plan( self::nights(), $units, $hm, self::rows( array( $web ) ) + array( 'created' => array( 1 ) ), false, array() );
+		$this->assertSame( array( '2026-12-03', '2026-12-04' ), array_column( $plan['mismatches'], 'night' ) );
+		$this->assertSame( array( 'resa:1' ), $plan['mismatches'][0]['candidates'] );
+
+		// Sent and known: HostelMate already counts it, so nothing is missing.
+		$plan = BlockPlanner::plan( self::nights(), $units, array( self::DORM => array_merge( self::hm( self::DORM, 2 )[ self::DORM ], array( '2026-12-03' => array( 'available' => 1, 'closed' => false ), '2026-12-04' => array( 'available' => 1, 'closed' => false ) ) ) ), self::rows( array( $web ) ) + array( 'created' => array( 1 ) ), false, array() );
+		$this->assertSame( array(), $plan['mismatches'] );
+	}
+
 	public function test_whole_room_and_its_beds_block_each_other_inside_hbook(): void {
 		$units   = array( self::WHOLE => array( '600:1' ), self::BED_A => array( '62:1' ), self::BED_B => array( '63:1' ) );
 		$hm      = self::hm( self::WHOLE, 1 ) + self::hm( self::BED_A, 1 ) + self::hm( self::BED_B, 1 );

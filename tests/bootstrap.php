@@ -34,6 +34,8 @@ final class WpStub {
 	public static array $queue = array();
 	/** @var list<array{to: string, subject: string, body: string}> */
 	public static array $mails = array();
+	/** wp_doing_cron() answer. */
+	public static bool $cron = false;
 
 	public static function reset(): void {
 		self::$options       = array( 'admin_email' => 'owner@example.com' );
@@ -45,6 +47,7 @@ final class WpStub {
 		self::$next_response = null;
 		self::$queue         = array();
 		self::$mails         = array();
+		self::$cron          = false;
 		$GLOBALS['wpdb']     = new FakeWpdb();
 	}
 }
@@ -129,6 +132,9 @@ function admin_url( string $path = '' ): string {
 }
 function wp_strip_all_tags( string $text ): string {
 	return strip_tags( $text );
+}
+function wp_doing_cron(): bool {
+	return WpStub::$cron;
 }
 function wp_mail( $to, string $subject, string $body ): bool {
 	WpStub::$mails[] = array(

@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace HostelMate\HBook\Sync;
 
+use HostelMate\HBook\HBook\Bookings;
 use HostelMate\HBook\HBook\Occupancy;
 
 defined( 'ABSPATH' ) || exit;
@@ -34,9 +35,9 @@ final class BlockPlanner {
 	 * @return BlockPlan
 	 */
 	public static function plan( array $nights, array $room_units, array $hm, array $rows, bool $paid_needs, array $hybrids ): array {
-		$from                          = $nights[0] ?? '';
-		$to                            = array() === $nights ? '' : \HostelMate\HBook\Core\Clock::add_days( $nights[ count( $nights ) - 1 ], 1 );
-		list( $taken, $counted, $own ) = self::read_rows( $rows, $from, $to, $paid_needs );
+		$from                                    = $nights[0] ?? '';
+		$to                                      = array() === $nights ? '' : \HostelMate\HBook\Core\Clock::add_days( $nights[ count( $nights ) - 1 ], 1 );
+		list( $taken, $counted, $own, $to_send ) = self::read_rows( $rows, $from, $to, $paid_needs );
 
 		$wanted     = array();
 		$mismatches = array();
@@ -67,7 +68,10 @@ final class BlockPlanner {
 					$wanted[ $unit ][ $night ] = true;
 				}
 
-				$missing = $target - count( $free );
+				// Units held by website bookings the plugin is still to create: HostelMate counts them free until
+				// the booking loop sends them (it alerts if it can't), so they are not something HostelMate is missing.
+				$sending = count( array_filter( $units, static fn( string $u ): bool => isset( $to_send[ $u ][ $night ] ) && ! isset( $counted[ $u ][ $night ] ) ) );
+				$missing = $target - count( $free ) - $sending;
 				if ( $missing > 0 ) {
 					$candidates = array();
 					foreach ( $units as $unit ) {
@@ -144,30 +148,39 @@ final class BlockPlanner {
 
 	/**
 	 * Splits HBook's rows into: taken by anything but the plugin; the subset that HostelMate should
-	 * know about (reservations and manual blocks, as references "resa:id" / "block:id"); and the
-	 * plugin's own current blocks.
+	 * know about (reservations and manual blocks, as references "resa:id" / "block:id"); the
+	 * plugin's own current blocks; and units held by website bookings the plugin has yet to create
+	 * in HostelMate (only when $rows says which ones it created; without that list every booking
+	 * counts, as before).
 	 *
 	 * @param Rows   $rows       Rows.
 	 * @param string $from       First night.
 	 * @param string $to         Day after the last night.
 	 * @param bool   $paid_needs HBook option.
-	 * @return array{0: array<string, array<string, true>>, 1: array<string, array<string, list<string>>>, 2: array<string, array<string, true>>}
+	 * @return array{0: array<string, array<string, true>>, 1: array<string, array<string, list<string>>>, 2: array<string, array<string, true>>, 3: array<string, array<string, true>>}
 	 */
 	private static function read_rows( array $rows, string $from, string $to, bool $paid_needs ): array {
 		$taken   = array();
 		$counted = array();
 		$own     = array();
+		$to_send = array();
 		if ( '' === $from ) {
-			return array( $taken, $counted, $own );
+			return array( $taken, $counted, $own, $to_send );
 		}
+		$created = isset( $rows['created'] ) ? array_flip( $rows['created'] ) : null;
 		foreach ( $rows['reservations'] as $r ) {
 			if ( ! Occupancy::holds_unit( (string) $r['status'], $paid_needs ) ) {
 				continue;
 			}
-			$unit = $r['accom_id'] . ':' . $r['accom_num'];
+			$unit    = $r['accom_id'] . ':' . $r['accom_num'];
+			$sending = null !== $created && Bookings::ORIGIN === $r['origin'] && ! isset( $created[ $r['id'] ] );
 			foreach ( Occupancy::resa_nights( $r, $from, $to ) as $night ) {
-				$taken[ $unit ][ $night ]     = true;
-				$counted[ $unit ][ $night ][] = 'resa:' . $r['id'];
+				$taken[ $unit ][ $night ] = true;
+				if ( $sending ) {
+					$to_send[ $unit ][ $night ] = true;
+				} else {
+					$counted[ $unit ][ $night ][] = 'resa:' . $r['id'];
+				}
 			}
 		}
 		foreach ( $rows['blocks'] as $b ) {
@@ -185,6 +198,6 @@ final class BlockPlanner {
 				}
 			}
 		}
-		return array( $taken, $counted, $own );
+		return array( $taken, $counted, $own, $to_send );
 	}
 }

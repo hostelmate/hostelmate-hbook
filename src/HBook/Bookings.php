@@ -24,6 +24,9 @@ defined( 'ABSPATH' ) || exit;
  */
 final class Bookings {
 
+	/** HBook's origin for bookings made on the website (front-end-ajax-actions.php: 'origin' => 'website'). */
+	public const ORIGIN = 'website';
+
 	/**
 	 * Website bookings with check-out on or after $since, by reservation id.
 	 *
@@ -33,7 +36,7 @@ final class Bookings {
 	public static function website_since( string $since ): array {
 		global $wpdb;
 		$resa      = Schema::table( 'resa' );
-		$rows      = (array) $wpdb->get_results( $wpdb->prepare( "SELECT id, parent_id, accom_id, accom_num, check_in, check_out, adults, children, price, status, customer_id, alphanum_id, payments_logs FROM `{$resa}` WHERE origin = 'website' AND check_out >= %s ORDER BY id", $since ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema only.
+		$rows      = (array) $wpdb->get_results( $wpdb->prepare( "SELECT id, parent_id, accom_id, accom_num, check_in, check_out, adults, children, price, status, customer_id, alphanum_id, payments_logs, paid, payment_gateway FROM `{$resa}` WHERE origin = %s AND check_out >= %s ORDER BY id", self::ORIGIN, $since ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema only.
 		$by_parent = array();
 		foreach ( $rows as $r ) {
 			if ( (int) $r['parent_id'] > 0 ) {
@@ -49,7 +52,7 @@ final class Bookings {
 			if ( $parent_id > 0 && isset( $parents[ $parent_id ] ) ) {
 				continue; // Handled with its siblings below.
 			}
-			$out[ (int) $r['id'] ] = self::normalise( $r, Money::to_minor( self::decimal( (string) $r['price'] ) ), self::payments( (string) $r['payments_logs'] ), $customers, (string) $r['alphanum_id'] );
+			$out[ (int) $r['id'] ] = self::normalise( $r, Money::to_minor( self::decimal( (string) $r['price'] ) ), self::payments( (string) $r['payments_logs'], (string) $r['paid'], (string) $r['payment_gateway'] ), $customers, (string) $r['alphanum_id'] );
 		}
 		foreach ( $by_parent as $parent_id => $children ) {
 			$parent = $parents[ $parent_id ] ?? null;
@@ -58,7 +61,7 @@ final class Bookings {
 			}
 			$weights  = array_map( static fn( array $c ): int => max( 0, Money::to_minor( self::decimal( (string) $c['price'] ) ) ), $children );
 			$totals   = Money::split_by_weights( max( 0, Money::to_minor( self::decimal( (string) $parent['price'] ) ) ), $weights );
-			$payments = self::split_payments( self::payments( (string) $parent['payments_logs'] ), $weights );
+			$payments = self::split_payments( self::payments( (string) $parent['payments_logs'], (string) $parent['paid'], (string) $parent['payment_gateway'] ), $weights );
 			foreach ( $children as $i => $c ) {
 				$c['customer_id']      = $parent['customer_id'];
 				$out[ (int) $c['id'] ] = self::normalise( $c, $totals[ $i ], $payments[ $i ], $customers, (string) $parent['alphanum_id'] );
@@ -117,23 +120,42 @@ final class Bookings {
 	}
 
 	/**
-	 * HBook's payments_logs JSON → entries (amounts in minor units).
+	 * The money HBook holds for a booking, as signed entries in minor units: one per payments_logs
+	 * entry (a refund is HBook's own negative entry, added by every refund path, admin-ajax-actions.php
+	 * hb_resa_refund and hb_refund_resa_payment, or typed in by the owner), skipping entries HBook marks
+	 * 'failed' (HBook leaves them out of what was paid, utils.php resa_total_paid). refunded_amount is
+	 * not read: it is only a note on a charge, and HBook 2.2.1 overwrites it on a second partial refund
+	 * (database-actions.php mark_resa_payment_refunded). A booking from before payment logs keeps its
+	 * money in the `paid` column: then that column is one entry (ref "0"). When logs exist the column is
+	 * already in them (HBook moved it there as an entry with no date), so it is not counted twice.
 	 *
-	 * @param string $json payments_logs.
+	 * @param string $json    payments_logs.
+	 * @param string $paid    The `paid` column.
+	 * @param string $gateway The `payment_gateway` column (for the old `paid` column).
 	 * @return list<BookingPayment>
 	 */
-	public static function payments( string $json ): array {
+	public static function payments( string $json, string $paid, string $gateway ): array {
 		$list = json_decode( $json, true );
 		$out  = array();
 		foreach ( is_array( $list ) ? $list : array() as $p ) {
-			if ( ! is_array( $p ) || ! is_numeric( $p['id'] ?? null ) || ! is_numeric( $p['amount'] ?? null ) ) {
+			if ( ! is_array( $p ) || ! is_numeric( $p['id'] ?? null ) || ! is_numeric( $p['amount'] ?? null ) || isset( $p['failed'] ) ) {
 				continue;
 			}
+			$amount = Money::to_minor( self::decimal( (string) $p['amount'] ) );
+			if ( 0 !== $amount ) {
+				$out[] = array(
+					'ref'     => (string) (int) $p['id'],
+					'amount'  => $amount,
+					'gateway' => strtolower( is_string( $p['payment_method'] ?? null ) ? $p['payment_method'] : '' ),
+				);
+			}
+		}
+		$legacy = Money::to_minor( self::decimal( $paid ) );
+		if ( ( ! is_array( $list ) || array() === $list ) && 0 !== $legacy ) {
 			$out[] = array(
-				'ref'      => (string) (int) $p['id'],
-				'amount'   => max( 0, Money::to_minor( self::decimal( (string) $p['amount'] ) ) ),
-				'refunded' => is_numeric( $p['refunded_amount'] ?? null ) ? max( 0, Money::to_minor( self::decimal( (string) $p['refunded_amount'] ) ) ) : 0,
-				'gateway'  => strtolower( is_string( $p['payment_method'] ?? null ) ? $p['payment_method'] : '' ),
+				'ref'     => '0',
+				'amount'  => $legacy,
+				'gateway' => strtolower( $gateway ),
 			);
 		}
 		return $out;
@@ -149,15 +171,14 @@ final class Bookings {
 	private static function split_payments( array $payments, array $weights ): array {
 		$out = array_fill( 0, count( $weights ), array() );
 		foreach ( $payments as $p ) {
-			$amounts = Money::split_by_weights( $p['amount'], $weights );
-			$refunds = Money::split_by_weights( $p['refunded'], $weights );
+			$sign    = $p['amount'] < 0 ? -1 : 1;
+			$amounts = Money::split_by_weights( $sign * $p['amount'], $weights );
 			foreach ( array_keys( $weights ) as $i ) {
-				if ( $amounts[ $i ] > 0 || $refunds[ $i ] > 0 ) {
+				if ( 0 !== $amounts[ $i ] ) {
 					$out[ $i ][] = array(
-						'ref'      => $p['ref'],
-						'amount'   => $amounts[ $i ],
-						'refunded' => $refunds[ $i ],
-						'gateway'  => $p['gateway'],
+						'ref'     => $p['ref'],
+						'amount'  => $sign * $amounts[ $i ],
+						'gateway' => $p['gateway'],
 					);
 				}
 			}
@@ -179,7 +200,7 @@ final class Bookings {
 		$table = Schema::table( 'parents_resa' );
 		$in    = implode( ',', array_map( 'intval', $ids ) );
 		$out   = array();
-		foreach ( (array) $wpdb->get_results( "SELECT id, price, customer_id, alphanum_id, payments_logs FROM `{$table}` WHERE id IN ({$in})", ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema, ids are integers.
+		foreach ( (array) $wpdb->get_results( "SELECT id, price, customer_id, alphanum_id, payments_logs, paid, payment_gateway FROM `{$table}` WHERE id IN ({$in})", ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Schema, ids are integers.
 			$out[ (int) $row['id'] ] = $row;
 		}
 		return $out;

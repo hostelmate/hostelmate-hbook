@@ -49,6 +49,7 @@ final class BookingRunner {
 						litespeed_finish_request();
 					}
 					self::run( Config::BOOKING_SOON_SECONDS );
+					\HostelMate\HBook\Core\Alerts::send_due(); // This run ends the request: its alerts go out now.
 				}
 			),
 			PHP_INT_MAX

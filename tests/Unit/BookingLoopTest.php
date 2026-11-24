@@ -75,7 +75,7 @@ final class BookingLoopTest extends TestCase {
 		$ended = self::booking( array( 'check_in' => '2026-11-01', 'check_out' => '2026-11-03' ) );
 		$this->assertSame( array(), self::ops( BookingPlanner::plan( $ended, BookingPlanner::nothing_sent( self::UUID ), self::target(), false, self::METHODS, '2026-11-24' ) ) );
 		$sent = array( 'nights' => array( '2026-11-01' => 50000, '2026-11-02' => 50000 ) ) + self::sent_after_create();
-		$ended['payments'] = array( array( 'ref' => '1', 'amount' => 100000, 'refunded' => 30000, 'gateway' => 'stripe' ) );
+		$ended['payments'] = array( array( 'ref' => '1', 'amount' => 100000, 'gateway' => 'stripe' ), array( 'ref' => '2', 'amount' => -30000, 'gateway' => 'stripe' ) );
 		$this->assertContains( BookingPlanner::ADD_PAYMENT, self::ops( BookingPlanner::plan( $ended, $sent, self::target(), false, self::METHODS, '2026-11-24' ) ) );
 	}
 
@@ -108,7 +108,7 @@ final class BookingLoopTest extends TestCase {
 				'status'    => 'confirmed',
 				'check_out' => '2026-12-07',
 				'guest'     => array( 'first_name' => 'Ana', 'last_name' => 'Ruiz Díaz', 'email' => 'ana@example.com', 'phone' => '+52 1', 'country' => 'MX' ),
-				'payments'  => array( array( 'ref' => '1', 'amount' => 100000, 'refunded' => 0, 'gateway' => 'stripe' ) ),
+				'payments'  => array( array( 'ref' => '1', 'amount' => 100000, 'gateway' => 'stripe' ) ),
 			)
 		);
 		$plan = BookingPlanner::plan( $booking, self::sent_after_create(), array( 'room' => self::ROOM, 'bed' => '00000000-0000-4000-8000-000000000076' ), false, self::METHODS );
@@ -117,19 +117,50 @@ final class BookingLoopTest extends TestCase {
 		$this->assertSame( array( 'p1', 100000, 'income', 'Credit Card', 'hbook:4662:p1' ), array( $pay['ref'], $pay['amount'], $pay['type'], $pay['method'], $pay['name'] ) );
 	}
 
-	public function test_refunds_are_their_own_payment_and_grow_by_patch(): void {
-		$booking = self::booking( array( 'payments' => array( array( 'ref' => '1', 'amount' => 100000, 'refunded' => 20000, 'gateway' => 'paypal' ) ) ) );
+	public function test_each_refund_is_its_own_outgoing_payment(): void {
+		// HBook adds a negative entry for every refund (card refunds and refunds the owner types in).
+		$booking = self::booking( array( 'payments' => array( array( 'ref' => '1', 'amount' => 100000, 'gateway' => 'paypal' ), array( 'ref' => '2', 'amount' => -20000, 'gateway' => 'paypal' ) ) ) );
 		$sent    = self::sent_after_create();
 		$sent['payments']['p1'] = array( 'hm_id' => self::PAY, 'amount' => 100000 );
 		$plan    = BookingPlanner::plan( $booking, $sent, self::target(), false, self::METHODS );
 		$this->assertSame( array( BookingPlanner::ADD_PAYMENT ), self::ops( $plan ) );
-		$this->assertSame( array( 'p1r', 20000, 'outgoing' ), array( $plan['ops'][0]['data']['ref'], $plan['ops'][0]['data']['amount'], $plan['ops'][0]['data']['type'] ) );
+		$this->assertSame( array( 'p2r', 20000, 'outgoing', 'Credit Card' ), array( $plan['ops'][0]['data']['ref'], $plan['ops'][0]['data']['amount'], $plan['ops'][0]['data']['type'], $plan['ops'][0]['data']['method'] ) );
 
-		$sent['payments']['p1r'] = array( 'hm_id' => self::PAY, 'amount' => 20000 );
-		$booking['payments'][0]['refunded'] = 50000;
+		// A second partial refund is a second entry, so a second outgoing payment.
+		$sent['payments']['p2r'] = array( 'hm_id' => self::PAY, 'amount' => 20000 );
+		$booking['payments'][]   = array( 'ref' => '3', 'amount' => -30000, 'gateway' => 'cash' );
 		$plan = BookingPlanner::plan( $booking, $sent, self::target(), false, self::METHODS );
-		$this->assertSame( array( BookingPlanner::PATCH_PAYMENT ), self::ops( $plan ) );
-		$this->assertSame( 50000, $plan['ops'][0]['data']['amount'] );
+		$this->assertSame( array( BookingPlanner::ADD_PAYMENT ), self::ops( $plan ) );
+		$this->assertSame( array( 'p3r', 30000, 'outgoing', 'Cash' ), array( $plan['ops'][0]['data']['ref'], $plan['ops'][0]['data']['amount'], $plan['ops'][0]['data']['type'], $plan['ops'][0]['data']['method'] ) );
+	}
+
+	public function test_payments_follow_hbook_when_deleted_or_changed(): void {
+		// Found live 2026-11-24: payments the owner deleted in HBook stayed in HostelMate as income.
+		$sent                     = self::sent_after_create();
+		$sent['payments']['p1']   = array( 'hm_id' => self::PAY, 'amount' => 24600 );
+		$sent['payments']['p2']   = array( 'hm_id' => self::PAY . '2', 'amount' => 4600 );
+		$sent['payments']['p3r']  = array( 'hm_id' => self::PAY . '3', 'amount' => 1000 );
+		$booking                  = self::booking( array( 'payments' => array( array( 'ref' => '1', 'amount' => 24600, 'gateway' => 'stripe' ) ) ) );
+		$plan                     = BookingPlanner::plan( $booking, $sent, self::target(), false, self::METHODS );
+		// p2 and the refund p3 are gone from HBook: both go to 0 in HostelMate (patched, never deleted). p1 is in step.
+		$this->assertSame( array( BookingPlanner::PATCH_PAYMENT, BookingPlanner::PATCH_PAYMENT ), self::ops( $plan ) );
+		$this->assertSame( array( array( 'p2', 0 ), array( 'p3r', 0 ) ), array_map( static fn( array $o ): array => array( $o['data']['ref'], $o['data']['amount'] ), $plan['ops'] ) );
+
+		// Once patched to 0 nothing more is sent.
+		$sent['payments']['p2']['amount']  = 0;
+		$sent['payments']['p3r']['amount'] = 0;
+		$this->assertSame( array(), self::ops( BookingPlanner::plan( $booking, $sent, self::target(), false, self::METHODS ) ) );
+
+		// An amount changed in HBook is patched. HBook reuses id 2 for a refund after the delete: the sign is in
+		// the ref, so the old income p2 stays 0 and the refund is a new outgoing p2r.
+		$booking['payments'] = array(
+			array( 'ref' => '1', 'amount' => 20000, 'gateway' => 'stripe' ),
+			array( 'ref' => '2', 'amount' => -4600, 'gateway' => 'stripe' ),
+		);
+		$plan = BookingPlanner::plan( $booking, $sent, self::target(), false, self::METHODS );
+		$this->assertSame( array( BookingPlanner::PATCH_PAYMENT, BookingPlanner::ADD_PAYMENT ), self::ops( $plan ) );
+		$this->assertSame( array( 'p1', 20000 ), array( $plan['ops'][0]['data']['ref'], $plan['ops'][0]['data']['amount'] ) );
+		$this->assertSame( array( 'p2r', 4600, 'outgoing' ), array( $plan['ops'][1]['data']['ref'], $plan['ops'][1]['data']['amount'], $plan['ops'][1]['data']['type'] ) );
 	}
 
 	public function test_cancel_decline_and_delete(): void {
@@ -160,15 +191,23 @@ final class BookingLoopTest extends TestCase {
 	}
 
 	public function test_hbook_payment_logs_are_parsed_safely(): void {
-		$json = '[{"amount":1242,"payment_method":"Stripe","gateway_info":"ch_x","online":"yes","id":1,"refunded_amount":0,"comment":"","received_on":"2026-11-23"},{"amount":"10.5","payment_method":"Cash","id":2,"refunded_amount":"2.25"},{"id":"x"},"junk"]';
+		// Shapes from real HBook data: a charge noted as refunded, HBook's negative refund
+		// entry, a refund typed in as cash; plus a failed entry, junk, and an entry of 0.
+		$json = '[{"amount":2280,"payment_method":"Stripe","gateway_info":"ch_x","online":"yes","id":1,"refunded_amount":2280,"comment":"","received_on":""},'
+			. '{"amount":-2280,"online":"yes","payment_method":"Stripe","id":2,"refunded_amount":0},{"amount":"-10.5","payment_method":"Cash","id":3,"refunded_amount":"0"},'
+			. '{"amount":99,"payment_method":"Stripe","id":4,"failed":"yes"},{"amount":0,"id":5},{"id":"x"},"junk"]';
 		$this->assertSame(
 			array(
-				array( 'ref' => '1', 'amount' => 124200, 'refunded' => 0, 'gateway' => 'stripe' ),
-				array( 'ref' => '2', 'amount' => 1050, 'refunded' => 225, 'gateway' => 'cash' ),
+				array( 'ref' => '1', 'amount' => 228000, 'gateway' => 'stripe' ),
+				array( 'ref' => '2', 'amount' => -228000, 'gateway' => 'stripe' ),
+				array( 'ref' => '3', 'amount' => -1050, 'gateway' => 'cash' ),
 			),
-			Bookings::payments( $json )
+			Bookings::payments( $json, '2280.00', 'Stripe' ) // The `paid` column is already in the logs: not counted twice.
 		);
-		$this->assertSame( array(), Bookings::payments( 'not json' ) );
+		// Before payment logs (older HBook bookings): the `paid` column is the money.
+		$this->assertSame( array( array( 'ref' => '0', 'amount' => 2279880, 'gateway' => 'stripe' ) ), Bookings::payments( '', '22798.80', 'Stripe' ) );
+		$this->assertSame( array(), Bookings::payments( '[]', '0.00', '' ) );
+		$this->assertSame( array(), Bookings::payments( 'not json', '0.00', '' ) );
 	}
 
 	/** @param array<string, mixed> $body */
@@ -253,7 +292,7 @@ final class BookingLoopTest extends TestCase {
 
 	public function test_sender_never_sends_a_payment_twice(): void {
 		Secret::store( 'hmk_live_0123456789abcdefABCDEF' );
-		$booking        = self::booking( array( 'payments' => array( array( 'ref' => '1', 'amount' => 100000, 'refunded' => 0, 'gateway' => 'stripe' ) ) ) );
+		$booking        = self::booking( array( 'payments' => array( array( 'ref' => '1', 'amount' => 100000, 'gateway' => 'stripe' ) ) ) );
 		$plan           = BookingPlanner::plan( $booking, self::sent_after_create(), self::target(), false, self::METHODS );
 		\WpStub::$queue = array( self::answer( 200, array( array( 'id' => self::PAY, 'name' => 'hbook:4662:p1' ) ) ) ); // HostelMate already has it.
 		$r = BookingSender::send( 4662, self::sent_after_create(), $plan['ops'] );

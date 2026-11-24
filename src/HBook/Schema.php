@@ -29,7 +29,7 @@ final class Schema {
 	 */
 	public static function tables(): array {
 		return array(
-			'resa'                  => array( 'id', 'check_in', 'check_out', 'accom_id', 'accom_num', 'adults', 'children', 'price', 'status', 'customer_id', 'origin', 'parent_id', 'alphanum_id', 'payments_logs', 'synchro_id', 'updated_on' ),
+			'resa'                  => array( 'id', 'check_in', 'check_out', 'accom_id', 'accom_num', 'adults', 'children', 'price', 'status', 'customer_id', 'origin', 'parent_id', 'alphanum_id', 'payments_logs', 'paid', 'payment_gateway', 'synchro_id', 'updated_on' ),
 			'accom_blocked'         => array( 'id', 'accom_id', 'accom_all_ids', 'accom_num', 'accom_all_num', 'from_date', 'to_date', 'linked_resa_id', 'is_prepa_time', 'comment', 'uid' ),
 			'accom_num_name'        => array( 'accom_id', 'accom_num', 'num_name' ),
 			'seasons'               => array( 'id', 'name', 'priority' ),
@@ -41,7 +41,7 @@ final class Schema {
 			'booking_rules_seasons' => array( 'rule_id', 'season_id' ),
 			'coupons_seasons'       => array( 'coupon_id', 'season_id' ),
 			'discounts_seasons'     => array( 'discount_id', 'season_id' ),
-			'parents_resa'          => array( 'id', 'price', 'customer_id', 'alphanum_id', 'payments_logs' ),
+			'parents_resa'          => array( 'id', 'price', 'customer_id', 'alphanum_id', 'payments_logs', 'paid', 'payment_gateway' ),
 			'customers'             => array( 'id', 'info' ),
 			'ical'                  => array( 'synchro_id', 'accom_id', 'accom_num', 'calendar_name' ),
 		);
