@@ -49,6 +49,10 @@ final class BookingRunner {
 						litespeed_finish_request();
 					}
 					self::run( Config::BOOKING_SOON_SECONDS );
+					// A booking changes what HBook may sell next to it (a whole room and its beds, plan 6.3): sync now,
+					// not at the next 5-minute run (found live 2026-11-24: the beds of a booked whole room stayed
+					// sellable in HBook until then). Own lock: skipped if a sync is already running.
+					SyncRunner::run();
 					\HostelMate\HBook\Core\Alerts::send_due(); // This run ends the request: its alerts go out now.
 				}
 			),
