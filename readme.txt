@@ -3,7 +3,7 @@ Tags: hostel, booking, availability, prices, reservations
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.2
-Stable tag: 0.1.0
+Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,3 +36,7 @@ Nothing is sent until you enter your HostelMate API key in the plugin's settings
 Every request carries your API key and the plugin's version number.
 
 This service is provided by HostelMate: [customer agreement](https://hostelmate.co/customer-agreement), [privacy policy](https://hostelmate.co/privacy-policy).
+
+== Changelog ==
+= 1.0.0 =
+* First public release.
