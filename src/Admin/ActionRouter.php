@@ -30,7 +30,7 @@ final class ActionRouter {
 			Config::ACTION_SAVE_SETTINGS => array( array( Actions::class, 'save_settings' ), array( 'alert_email', 'payment_methods', 'precheck' ), Config::PAGE_SETTINGS ),
 			Config::ACTION_SAVE_MAPPING  => array( array( Actions::class, 'save_mapping' ), array( 'mapping' ), Config::PAGE_ROOMS ),
 			Config::ACTION_CHECK_NOW     => array( array( Actions::class, 'check_now' ), array(), Config::PAGE_OVERVIEW ),
-			Config::ACTION_GO_LIVE       => array( array( Actions::class, 'go_live' ), array( 'ical_ok' ), Config::PAGE_OVERVIEW ),
+			Config::ACTION_GO_LIVE       => array( array( Actions::class, 'go_live' ), array( 'accept_warnings' ), Config::PAGE_OVERVIEW ),
 			Config::ACTION_PAUSE         => array( array( Actions::class, 'pause' ), array(), Config::PAGE_OVERVIEW ),
 			Config::ACTION_RESUME        => array( array( Actions::class, 'resume' ), array(), Config::PAGE_OVERVIEW ),
 			Config::ACTION_APPLY_HELD    => array( array( Actions::class, 'apply_held' ), array(), Config::PAGE_OVERVIEW ),

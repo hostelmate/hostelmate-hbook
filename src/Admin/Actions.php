@@ -133,13 +133,13 @@ final class Actions {
 	}
 
 	/**
-	 * Go live: only when the whole checklist passes. The first live run follows at once.
+	 * Go live: at least one room matched (required); other open warnings need the owner's tick. The first live run follows at once.
 	 *
-	 * @param array<string, mixed> $input ical_ok.
+	 * @param array<string, mixed> $input accept_warnings.
 	 * @return list<string>
 	 */
 	public static function go_live( array $input ): array {
-		if ( ! \HostelMate\HBook\Sync\GoLive::ready( '1' === ( $input['ical_ok'] ?? null ) ) ) {
+		if ( ! \HostelMate\HBook\Sync\GoLive::ready( '1' === ( $input['accept_warnings'] ?? null ) ) ) {
 			return array( Messages::GO_LIVE_BLOCKED );
 		}
 		Settings::set_mode( Config::MODE_LIVE );

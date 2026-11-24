@@ -6,6 +6,7 @@ namespace HostelMate\HBook\Tests\Unit;
 
 use HostelMate\HBook\Admin\Setup;
 use HostelMate\HBook\Config;
+use HostelMate\HBook\Sync\GoLive;
 
 /** The guided setup: which step is next, and that the URL can't skip ahead. */
 final class SetupStepsTest extends TestCase {
@@ -40,5 +41,18 @@ final class SetupStepsTest extends TestCase {
 		$this->assertSame( Setup::ROOMS, Setup::shown( 'live', Setup::ROOMS ) );
 		$this->assertSame( Setup::ROOMS, Setup::shown( '', Setup::ROOMS ) );
 		$this->assertSame( Setup::ROOMS, Setup::shown( '<script>', Setup::ROOMS ) );
+	}
+
+	public function test_go_live_needs_a_matched_room_and_otherwise_only_a_tick(): void {
+		$room    = static fn( bool $ok ): array => array( 'ok' => $ok, 'required' => true );
+		$warning = static fn( bool $ok ): array => array( 'ok' => $ok, 'required' => false );
+		// Everything fine: no tick needed.
+		$this->assertTrue( GoLive::allowed( array( $room( true ), $warning( true ) ), false ) );
+		// A warning (e.g. bookings HostelMate doesn't know): only with the owner's tick.
+		$this->assertFalse( GoLive::allowed( array( $room( true ), $warning( false ) ), false ) );
+		$this->assertTrue( GoLive::allowed( array( $room( true ), $warning( false ), $warning( false ) ), true ) );
+		// No matched room: never, tick or not.
+		$this->assertFalse( GoLive::allowed( array( $room( false ), $warning( true ) ), true ) );
+		$this->assertFalse( GoLive::allowed( array( $room( false ) ), false ) );
 	}
 }

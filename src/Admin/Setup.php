@@ -219,21 +219,26 @@ final class Setup {
 		echo '<div>';
 		echo '<h2>' . esc_html__( 'Go live', 'hostelmate-hbook' ) . '</h2>';
 		echo '<p>' . esc_html__( 'From now on your website takes its prices and free beds from HostelMate every 5 minutes, and sends its bookings to HostelMate. You can pause at any time.', 'hostelmate-hbook' ) . '</p>';
-		$items = GoLive::checklist();
+		$items    = GoLive::checklist();
+		$required = array_filter( $items, static fn( array $i ): bool => $i['required'] && ! $i['ok'] );
+		$warnings = array_filter( $items, static fn( array $i ): bool => ! $i['required'] && ! $i['ok'] );
 		echo '<ul>';
 		foreach ( $items as $item ) {
-			echo '<li>' . ( $item['ok'] ? '&#10003; ' : '&#10007; ' ) . esc_html( $item['text'] ) . '</li>';
+			echo '<li>' . ( $item['ok'] ? '&#10003; ' : ( $item['required'] ? '&#10007; ' : '&#9888; ' ) ) . esc_html( $item['text'] ) . '</li>';
 		}
 		echo '</ul>';
 		OverviewPage::bookings_to_send();
+		if ( array() !== $required ) {
+			View::notice( 'error', __( 'Match at least one room in step 2 first. Without a matched room the plugin has nothing to keep in step.', 'hostelmate-hbook' ) );
+			echo '</div>';
+			return;
+		}
 		View::form_open( Config::ACTION_GO_LIVE );
-		if ( Options::ical_calendar_count() > 0 ) {
-			echo '<p><label><input name="ical_ok" type="checkbox" value="1"> ' . esc_html__( 'The iCal calendars still in HBook are for channels that are NOT on HostelMate.', 'hostelmate-hbook' ) . '</label></p>';
+		if ( array() !== $warnings ) {
+			echo '<div class="notice notice-warning inline"><p>' . esc_html__( 'Some lines above have a warning. You can fix them first, or go live anyway.', 'hostelmate-hbook' ) . '</p>';
+			echo '<p><label><input name="accept_warnings" type="checkbox" value="1" required> ' . esc_html__( 'I\'ve read the warnings and want to go live anyway.', 'hostelmate-hbook' ) . '</label></p></div>';
 		}
 		View::form_close( __( 'Go live', 'hostelmate-hbook' ), 'button-hero' );
-		if ( array() !== array_filter( $items, static fn( array $i ): bool => ! $i['ok'] ) ) {
-			echo '<p class="description">' . esc_html__( 'Going live works once every line above has a tick. Fix the ones with a cross, then run the check again in step 3.', 'hostelmate-hbook' ) . '</p>';
-		}
 		OverviewPage::copies_tool();
 		echo '</div>';
 	}
