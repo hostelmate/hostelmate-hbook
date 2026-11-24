@@ -110,6 +110,9 @@ final class SyncRunner {
 		$unmatched = Mapping::unmatched( Mapping::get(), is_array( $property ) ? $property : null, $ctx['units'] );
 		self::alert_if( $unmatched['hbook'] > 0, Messages::MAP_HBOOK_UNMATCHED, Config::ALERT_LEVEL_AMBER );
 		self::alert_if( $unmatched['hostelmate'] > 0, Messages::MAP_HM_UNMATCHED, Config::ALERT_LEVEL_AMBER );
+		// A matched room or bed removed on either side after matching: those rooms silently drop out, so say so.
+		$broken = is_array( $property ) && array() !== array_filter( Mapping::problems( Mapping::get(), $property, $ctx['units'] ), static fn( array $p ): bool => Mapping::LEVEL_ERROR === $p['level'] );
+		self::alert_if( $broken, Messages::MAP_BROKEN, $live ? Config::ALERT_LEVEL_RED : Config::ALERT_LEVEL_AMBER );
 
 		State::set( 'preview', Summary::build( $ctx, $prices, $blocks, $brake ) );
 		if ( ! $live ) {

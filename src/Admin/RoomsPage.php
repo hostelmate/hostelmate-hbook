@@ -141,8 +141,9 @@ final class RoomsPage {
 	 * @param string                                 $ref      "accom:num", an HBook room id, a HostelMate room id, or a name.
 	 * @param array<string, mixed>                   $property Normalised /property answer.
 	 * @param array<int, array{name: string, units: list<int>}> $units    HBook units.
+	 * @param array<string, list<array{accom: int, num: int, bed: string}>> $mapping Saved mapping.
 	 */
-	private static function ref_name( string $ref, array $property, array $units ): string {
+	private static function ref_name( string $ref, array $property, array $units, array $mapping ): string {
 		if ( 1 === preg_match( '/^(\d+):(\d+)$/', $ref, $m ) ) {
 			$accom = $units[ (int) $m[1] ] ?? null;
 			if ( null === $accom ) {
@@ -159,6 +160,15 @@ final class RoomsPage {
 			if ( ( $room['id'] ?? '' ) === $ref ) {
 				return (string) $room['name'];
 			}
+		}
+		if ( isset( $mapping[ $ref ] ) ) {
+			// A HostelMate room that is gone: name it by the website rooms that were matched to it.
+			$names = array();
+			foreach ( $mapping[ $ref ] as $u ) {
+				$names[] = isset( $units[ $u['accom'] ] ) ? $units[ $u['accom'] ]['name'] . ( count( $units[ $u['accom'] ]['units'] ) > 1 ? ' · ' . $u['num'] : '' ) : '#' . $u['accom'];
+			}
+			/* translators: %s: website room names */
+			return sprintf( __( 'matched to %s', 'hostelmate-hbook' ), implode( ', ', array_unique( $names ) ) );
 		}
 		return \HostelMate\HBook\Core\Validate::is_uuid( $ref ) ? __( 'a HostelMate room that no longer exists', 'hostelmate-hbook' ) : $ref;
 	}
@@ -179,7 +189,7 @@ final class RoomsPage {
 		}
 		foreach ( $issues as $issue ) {
 			if ( is_array( $issue ) && is_string( $issue['code'] ?? null ) && is_string( $issue['ref'] ?? null ) ) {
-				View::notice( Mapping::LEVEL_ERROR === ( $issue['level'] ?? '' ) ? 'error' : 'warning', Messages::text( $issue['code'] ) . ' (' . self::ref_name( $issue['ref'], $property, $units ) . ')' );
+				View::notice( Mapping::LEVEL_ERROR === ( $issue['level'] ?? '' ) ? 'error' : 'warning', Messages::text( $issue['code'] ) . ' (' . self::ref_name( $issue['ref'], $property, $units, $mapping ) . ')' );
 			}
 		}
 	}

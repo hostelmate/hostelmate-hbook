@@ -26,6 +26,9 @@ final class OverviewPage {
 		echo '<div class="wrap">';
 		View::heading( __( 'HB-HostelMate', 'hostelmate-hbook' ) );
 		View::action_notices();
+		if ( ! \HostelMate\HBook\HBook\Schema::is_active() ) {
+			View::notice( 'error', __( 'HBook is switched off, so your website has no booking form and takes no bookings. Switch HBook on again on the Plugins page.', 'hostelmate-hbook' ) );
+		}
 		if ( ! Setup::done() ) {
 			Setup::render();
 			echo '</div>';

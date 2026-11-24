@@ -196,11 +196,15 @@ final class Setup {
 		echo '<p>' . esc_html__( 'The plugin compares your website with HostelMate and shows what going live would change. Nothing is changed now.', 'hostelmate-hbook' ) . '</p>';
 		View::form_open( Config::ACTION_CHECK_NOW );
 		View::form_close( $fresh ? __( 'Run the check again', 'hostelmate-hbook' ) : __( 'Run the check', 'hostelmate-hbook' ), $fresh ? 'button-secondary' : 'button-hero' );
-		if ( ! $fresh || ! is_array( $p ) ) {
-			// A check ran after the rooms were saved but gave no result: say why, here, not only in a notice.
-			$last  = State::get( 'last_run' );
-			$saved = State::get( 'rooms_saved_at' );
-			if ( is_array( $last ) && is_string( $last['code'] ?? null ) && (int) ( $last['at'] ?? 0 ) >= ( is_int( $saved ) ? $saved : 0 ) ) {
+		// The last check failed: say why, here, even if an earlier result is still recent
+		// (otherwise the owner would read the earlier result as this check's).
+		$last   = State::get( 'last_run' );
+		$saved  = State::get( 'rooms_saved_at' );
+		$since  = max( is_int( $saved ) ? $saved : 0, is_array( $p ) ? (int) $p['at'] : 0 );
+		$failed = is_array( $last ) && is_string( $last['code'] ?? null ) && (int) ( $last['at'] ?? 0 ) >= $since
+			&& ! in_array( $last['code'], array( Messages::PREVIEW_READY, Messages::SYNC_NO_CHANGE, Messages::SYNC_APPLIED ), true );
+		if ( ! $fresh || ! is_array( $p ) || $failed ) {
+			if ( $failed ) {
 				echo '<div class="notice notice-error inline"><p><strong>' . esc_html__( 'The check stopped:', 'hostelmate-hbook' ) . '</strong> ' . esc_html( Messages::text( $last['code'] ) ) . '</p>';
 				$property = State::get( 'property' );
 				$hm       = is_array( $property ) ? strtoupper( (string) ( $property['currency'] ?? '' ) ) : '';
@@ -211,11 +215,14 @@ final class Setup {
 					/* translators: 1: HBook currency, 2: HostelMate currency */
 					echo '<p>' . esc_html( sprintf( __( 'Your website\'s prices are in %1$s, and HostelMate\'s are in %2$s. Set the same currency in HostelMate\'s property settings (or in HBook), then run the check again.', 'hostelmate-hbook' ), '' !== Options::currency() ? Options::currency() : '?', is_array( $property ) ? strtoupper( (string) ( $property['currency'] ?? '?' ) ) : '?' ) ) . '</p></div>';
 				} else {
-					echo '<p>' . esc_html__( 'Fix this, then run the check again.', 'hostelmate-hbook' ) . '</p></div>';
+					echo '<p>' . esc_html__( 'When that\'s sorted, run the check again.', 'hostelmate-hbook' ) . '</p></div>';
 				}
 			}
-			echo '</div>';
-			return;
+			if ( ! $fresh || ! is_array( $p ) ) {
+				echo '</div>';
+				return;
+			}
+			echo '<h3>' . esc_html__( 'The check before that found:', 'hostelmate-hbook' ) . '</h3>';
 		}
 		OverviewPage::preview_summary( $p );
 		echo '<div>';
@@ -251,7 +258,6 @@ final class Setup {
 			echo '<p><label><input name="accept_warnings" type="checkbox" value="1" required> ' . esc_html__( 'I\'ve read the warnings and want to go live anyway.', 'hostelmate-hbook' ) . '</label></p></div>';
 		}
 		View::form_close( __( 'Go live', 'hostelmate-hbook' ), 'button-hero' );
-		OverviewPage::copies_tool();
 		echo '</div>';
 	}
 }

@@ -121,6 +121,7 @@ final class Messages {
 	public const MAP_ROOM_OFF          = 'map_room_off';
 	public const MAP_HBOOK_UNMATCHED   = 'map_hbook_unmatched';
 	public const MAP_HM_UNMATCHED      = 'map_hm_unmatched';
+	public const MAP_BROKEN            = 'map_broken';
 
 	/** @var list<string> Notice codes shown as success (the rest of NOTICE_CODES are errors). */
 	public const SUCCESS_CODES = array( self::CONNECTED, self::KEY_REMOVED, self::ROOMS_REFRESHED, self::SETTINGS_SAVED, self::MAPPING_SAVED, self::PREVIEW_READY, self::SYNC_APPLIED, self::SYNC_NO_CHANGE, self::GO_LIVE_DONE, self::RESUMED, self::HELD_APPLIED, self::DATA_REMOVED, self::COPIES_CANCELLED, self::COPIES_RESTORED );
@@ -233,23 +234,23 @@ final class Messages {
 			case self::MAP_UNKNOWN_ROOM:
 				return __( 'This HostelMate room no longer exists. Read the rooms from HostelMate again.', 'hostelmate-hbook' );
 			case self::MAP_UNKNOWN_UNIT:
-				return __( 'This HBook room or unit no longer exists.', 'hostelmate-hbook' );
+				return __( 'This website room or bed no longer exists in HBook. Save the rooms again to drop it.', 'hostelmate-hbook' );
 			case self::MAP_UNIT_TWICE:
-				return __( 'This HBook unit is matched twice.', 'hostelmate-hbook' );
+				return __( 'This website room or bed is matched twice.', 'hostelmate-hbook' );
 			case self::MAP_SPLIT_ACCOM:
-				return __( 'All units of one HBook room must go to the same HostelMate room (HBook prices per room).', 'hostelmate-hbook' );
+				return __( 'All beds of one website room must be matched to the same HostelMate room, because HBook has one price per room.', 'hostelmate-hbook' );
 			case self::MAP_WHOLE_ROOM_NO_BED:
-				return __( 'A whole-room HostelMate room is matched as a whole, without a bed.', 'hostelmate-hbook' );
+				return __( 'This HostelMate room is sold whole: pick it as a whole room, not a bed.', 'hostelmate-hbook' );
 			case self::MAP_BED_REQUIRED:
-				return __( 'Pick the bed (or unit) in HostelMate for this HBook unit.', 'hostelmate-hbook' );
+				return __( 'Pick the bed in HostelMate for this website bed.', 'hostelmate-hbook' );
 			case self::MAP_UNKNOWN_BED:
 				return __( 'This bed is not in the chosen HostelMate room.', 'hostelmate-hbook' );
 			case self::MAP_BED_TWICE:
-				return __( 'This HostelMate bed is matched to two HBook units.', 'hostelmate-hbook' );
+				return __( 'This HostelMate bed is matched to two website rooms or beds. Each HostelMate bed can be matched once.', 'hostelmate-hbook' );
 			case self::MAP_NO_CHANNEL_ID:
-				return __( 'This HostelMate room has no channel id, so HostelMate will refuse website bookings for it. Set it in HostelMate.', 'hostelmate-hbook' );
+				return __( 'HostelMate would refuse website bookings for this room: it isn\'t set up for bookings from outside HostelMate yet. Ask HostelMate support to set it up.', 'hostelmate-hbook' );
 			case self::MAP_FAKE_NUMBERS:
-				return __( 'This HostelMate room uses fake capacity or a fake maximum, so the website could sell beds HostelMate then refuses. Remove them in HostelMate.', 'hostelmate-hbook' );
+				return __( 'This HostelMate room shows more (or fewer) beds than it really has (fake capacity), so the website could sell beds HostelMate then refuses. Turn fake capacity off for this room in HostelMate.', 'hostelmate-hbook' );
 			case self::SYNC_NO_KEY:
 				return __( 'No HostelMate key: nothing is kept in step.', 'hostelmate-hbook' );
 			case self::SYNC_SCHEMA:
@@ -271,11 +272,11 @@ final class Messages {
 			case self::SYNC_UNREACHABLE:
 				return __( 'Couldn\'t reach HostelMate. Your website keeps the last prices and dates until it can.', 'hostelmate-hbook' );
 			case self::SYNC_FOREIGN_HIGH:
-				return __( 'Another plugin writes high-priority seasons in HBook (for example automatic last-minute prices). HBook would then pick prices at random: switch that off.', 'hostelmate-hbook' );
+				return __( 'Another plugin sets its own prices in HBook (for example automatic last-minute prices), so HBook could show either price. Switch that off.', 'hostelmate-hbook' );
 			case self::SYNC_MISMATCH:
 				return __( 'HBook holds bookings or blocks HostelMate doesn\'t know about, so the same bed could be sold twice on other channels.', 'hostelmate-hbook' );
 			case self::SYNC_HELD:
-				return __( 'A very large change from HostelMate is on hold. Check it, then apply or discard it.', 'hostelmate-hbook' );
+				return __( 'A very large change from HostelMate is waiting. Check it, then apply it or not.', 'hostelmate-hbook' );
 			case self::SYNC_WRITE_FAILED:
 				return __( 'Saving prices and dates in HBook failed, so nothing was changed. It will be tried again.', 'hostelmate-hbook' );
 			case self::SYNC_NO_CHANGE:
@@ -283,7 +284,7 @@ final class Messages {
 			case self::SYNC_APPLIED:
 				return __( 'Prices and dates updated from HostelMate.', 'hostelmate-hbook' );
 			case self::PREVIEW_READY:
-				return __( 'Preview updated: see what would change below.', 'hostelmate-hbook' );
+				return __( 'Check done: see what going live would change.', 'hostelmate-hbook' );
 			case self::PREVIEW_LARGE:
 				return __( 'This is a large change from what your website shows today. Going live applies it, because you have checked it here. After that, a change this large waits for your OK.', 'hostelmate-hbook' );
 			case self::SYNC_LATE:
@@ -293,7 +294,7 @@ final class Messages {
 			case self::GO_LIVE_DONE:
 				return __( 'Live: your website now follows HostelMate.', 'hostelmate-hbook' );
 			case self::GO_LIVE_BLOCKED:
-				return __( 'Not live yet: fix the items in the checklist first.', 'hostelmate-hbook' );
+				return __( 'Not live yet. Match at least one room, and if the checklist shows warnings, tick the box to go live anyway.', 'hostelmate-hbook' );
 			case self::PAUSED:
 				return __( 'Paused: nothing is written to your website or sent to HostelMate. Website bookings will NOT reach HostelMate while paused.', 'hostelmate-hbook' );
 			case self::RESUMED:
@@ -358,10 +359,12 @@ final class Messages {
 				return __( 'A check is already running. Try again in a minute.', 'hostelmate-hbook' );
 			case self::MAP_HBOOK_UNMATCHED:
 				return __( 'Some HBook rooms or beds aren\'t matched to HostelMate. The website sells them on its own, and HostelMate doesn\'t hear about their bookings. Match them on the Rooms page, unless they aren\'t in HostelMate at all.', 'hostelmate-hbook' );
+			case self::MAP_BROKEN:
+				return __( 'Some rooms are matched to a room or bed that no longer exists (it was removed in HostelMate or in HBook). Those rooms aren\'t kept in step until you fix them on the Rooms page.', 'hostelmate-hbook' );
 			case self::MAP_HM_UNMATCHED:
-				return __( 'Some HostelMate rooms aren\'t matched to an HBook room, so the website doesn\'t sell them. Match them on the Rooms page.', 'hostelmate-hbook' );
+				return __( 'Some HostelMate rooms aren\'t matched to a website room, so the website doesn\'t sell them. Match them on the Rooms page if the website should.', 'hostelmate-hbook' );
 			case self::MAP_ROOM_OFF:
-				return __( 'This HostelMate room is switched off.', 'hostelmate-hbook' );
+				return __( 'This HostelMate room is switched off, so the website can\'t sell it. Switch it on in HostelMate, or leave it unmatched.', 'hostelmate-hbook' );
 		}
 		return $code;
 	}

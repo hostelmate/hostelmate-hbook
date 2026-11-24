@@ -81,6 +81,14 @@ final class Scheduler {
 		if ( Config::MODE_LIVE !== Settings::mode() ) {
 			return;
 		}
+		// Checks are running (one was tried recently) but failing: that check's own alert says why
+		// (for example HostelMate unreachable). "Add a server cron job" would be the wrong advice.
+		$tried = State::get( 'last_run' );
+		if ( is_array( $tried ) && time() - (int) ( $tried['at'] ?? 0 ) < Config::LATE_AFTER ) {
+			Alerts::resolve_code( Messages::SYNC_LATE );
+			Alerts::resolve_code( Messages::SYNC_VERY_LATE );
+			return;
+		}
 		$age  = time() - (int) State::get( 'last_ok', time() );
 		$want = $age > Config::VERY_LATE_AFTER ? Messages::SYNC_VERY_LATE : ( $age > Config::LATE_AFTER ? Messages::SYNC_LATE : '' );
 		$open = array_column( Alerts::list(), 'code' );

@@ -60,6 +60,11 @@ final class Schema {
 		return $wpdb->prefix . 'hb_' . $name;
 	}
 
+	/** True while the HBook plugin is switched on (its main class is loaded). */
+	public static function is_active(): bool {
+		return class_exists( 'HBook', false );
+	}
+
 	/** HBook's version as it reports it ('' when HBook isn't installed). */
 	public static function version(): string {
 		$v = get_option( 'hbook_version', '' );
