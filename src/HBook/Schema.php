@@ -73,7 +73,7 @@ final class Schema {
 
 	/**
 	 * Every way HBook's tables differ from what the plugin needs. Empty = all good.
-	 * Each problem is "missing_table:x", "missing_column:x.y" or "not_innodb:x".
+	 * Each problem is "missing_table:x", "missing_column:x.y" or "not_innodb:x". Schema::summary() words them.
 	 *
 	 * @return list<string>
 	 */
@@ -106,5 +106,25 @@ final class Schema {
 			}
 		}
 		return $problems;
+	}
+
+	/**
+	 * The first problem, readable and with the full table name (for the owner's host), plus how many more. Pure.
+	 *
+	 * @param list<string> $problems From problems().
+	 */
+	public static function summary( array $problems ): string {
+		if ( array() === $problems ) {
+			return '';
+		}
+		list( $kind, $what ) = array_pad( explode( ':', $problems[0], 2 ), 2, '' );
+		$label               = array(
+			'not_innodb'     => 'not InnoDB',
+			'missing_table'  => 'missing table',
+			'missing_column' => 'missing column',
+		)[ $kind ] ?? $kind;
+		$more                = count( $problems ) > 1 ? ' (+' . ( count( $problems ) - 1 ) . ' more)' : '';
+		$parts               = explode( '.', $what, 2 );
+		return mb_substr( $label . ': ' . self::table( $parts[0] ) . ( isset( $parts[1] ) ? '.' . $parts[1] : '' ), 0, 64 - strlen( $more ) ) . $more;
 	}
 }

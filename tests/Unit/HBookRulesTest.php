@@ -116,6 +116,12 @@ final class HBookRulesTest extends TestCase {
 		}
 	}
 
+	public function test_schema_problems_are_named_for_the_owner(): void {
+		$this->assertSame( '', \HostelMate\HBook\HBook\Schema::summary( array() ) );
+		$this->assertSame( 'not InnoDB: wp_hb_accom_blocked', \HostelMate\HBook\HBook\Schema::summary( array( 'not_innodb:accom_blocked' ) ) );
+		$this->assertSame( 'missing column: wp_hb_seasons_dates.days (+1 more)', \HostelMate\HBook\HBook\Schema::summary( array( 'missing_column:seasons_dates.days', 'missing_table:ical' ) ) );
+	}
+
 	public function test_short_names(): void {
 		$this->assertSame( 'Sunrise', Units::short_name( "Sunrise | T\u{200A}E\u{200A}S\u{200A}T, Beach Town" ) );
 		$this->assertSame( 'Garden, N°65', Units::short_name( "Garden, N°65 | female dorm | T E S T" ) );

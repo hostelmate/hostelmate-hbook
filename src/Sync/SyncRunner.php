@@ -244,17 +244,19 @@ final class SyncRunner {
 
 	/** Checks that stop a run before anything is fetched. Returns '' when all is well. */
 	private static function preflight(): string {
-		$checks = array(
+		$problems = Schema::problems();
+		$checks   = array(
 			Messages::SYNC_NO_KEY   => Secret::has(),
-			Messages::SYNC_SCHEMA   => array() === Schema::problems(),
+			Messages::SYNC_SCHEMA   => array() === $problems,
 			Messages::SYNC_CURRENCY => self::currency_matches(),
 		);
 		foreach ( $checks as $code => $ok ) {
 			if ( ! $ok ) {
-				Alerts::open( $code, Config::ALERT_LEVEL_RED );
+				// The table problem is named (found live 2026-11-24: a MyISAM table gave only "not what this plugin expects").
+				Alerts::open( $code, Config::ALERT_LEVEL_RED, Messages::SYNC_SCHEMA === $code ? Schema::summary( $problems ) : '' );
 				return self::finish( $code, Config::LOG_LEVEL_ERROR );
 			}
-			Alerts::resolve( $code );
+			Alerts::resolve_code( $code );
 		}
 		self::alert_if( ! self::zones_match(), Messages::SYNC_TIMEZONE, Config::ALERT_LEVEL_AMBER );
 		// An HBook version not tested yet whose tables still match: carry on, and say so (plan 11, scenario 39).
