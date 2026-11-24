@@ -26,7 +26,7 @@ final class Config {
 	public const MIN_WP  = '6.5';
 
 	/** Version of the plugin's own tables; raise it when Db::tables() changes. */
-	public const DB_VERSION = 1;
+	public const DB_VERSION = 2; // 2: hostelmate_bookings.failing_since.
 
 	// Options. Only SETTINGS is autoloaded.
 	public const OPT_SETTINGS = 'hostelmate_hbook_settings';

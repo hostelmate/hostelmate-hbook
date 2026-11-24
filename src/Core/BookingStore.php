@@ -29,13 +29,13 @@ final class BookingStore {
 	/**
 	 * Every row, by HBook reservation id.
 	 *
-	 * @return array<int, array{sent: Sent, state: string, attempts: int, next_try: int, code: string, since: int}>
+	 * @return array<int, array{sent: Sent, state: string, attempts: int, next_try: int, code: string, since: int, failing: int}>
 	 */
 	public static function all(): array {
 		global $wpdb;
 		$table = Db::table( Config::TABLE_BOOKINGS );
 		$out   = array();
-		foreach ( (array) $wpdb->get_results( "SELECT hbook_resa_id, hm_booking_id, sent_state, state, attempts, next_try_at, last_code, updated_at FROM `{$table}`", ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Config only.
+		foreach ( (array) $wpdb->get_results( "SELECT hbook_resa_id, hm_booking_id, sent_state, state, attempts, next_try_at, last_code, updated_at, failing_since FROM `{$table}`", ARRAY_A ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery -- identifier from Config only.
 			$out[ (int) $row['hbook_resa_id'] ] = array(
 				'sent'     => self::decode( (string) $row['sent_state'], (string) $row['hm_booking_id'] ),
 				'state'    => (string) $row['state'],
@@ -43,6 +43,7 @@ final class BookingStore {
 				'next_try' => null === $row['next_try_at'] ? 0 : (int) strtotime( $row['next_try_at'] . ' UTC' ),
 				'code'     => (string) $row['last_code'],
 				'since'    => (int) strtotime( $row['updated_at'] . ' UTC' ),
+				'failing'  => null === $row['failing_since'] ? 0 : (int) strtotime( $row['failing_since'] . ' UTC' ),
 			);
 		}
 		return $out;
@@ -95,12 +96,13 @@ final class BookingStore {
 		$table = Db::table( Config::TABLE_BOOKINGS );
 		$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
-				"UPDATE `{$table}` SET sent_state = %s, state = %s, attempts = %d, next_try_at = %s, last_code = %s, claim_token = NULL, claimed_until = NULL, updated_at = UTC_TIMESTAMP() WHERE hbook_resa_id = %d AND claim_token = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- identifier from Config only.
+				"UPDATE `{$table}` SET sent_state = %s, state = %s, attempts = %d, next_try_at = %s, last_code = %s, claim_token = NULL, claimed_until = NULL, updated_at = UTC_TIMESTAMP(), failing_since = IF( %s, COALESCE( failing_since, UTC_TIMESTAMP() ), NULL ) WHERE hbook_resa_id = %d AND claim_token = %s", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- identifier from Config only.
 				wp_json_encode( $sent ),
 				$state,
 				$attempts,
 				0 === $next_try ? null : gmdate( 'Y-m-d H:i:s', $next_try ),
 				substr( $code, 0, 48 ),
+				self::PENDING === $state && '' !== $code ? 1 : 0, // Still failing: keep the first failure's time; anything else clears it.
 				$resa_id,
 				$token
 			)

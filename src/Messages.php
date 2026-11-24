@@ -91,6 +91,8 @@ final class Messages {
 
 	// Check before booking.
 	public const GUEST_JUST_BOOKED = 'guest_just_booked';
+	public const GUEST_MIN_STAY    = 'guest_min_stay';
+	public const GUEST_MAX_STAY    = 'guest_max_stay';
 	public const PRECHECK_REFUSED  = 'precheck_refused';
 	public const PRECHECK_SKIPPED  = 'precheck_skipped';
 
@@ -319,6 +321,12 @@ final class Messages {
 				return __( 'A website booking has no nights or more nights than HostelMate accepts. Check its dates in HBook.', 'hostelmate-hbook' );
 			case self::GUEST_JUST_BOOKED:
 				return __( 'Sorry, this was just booked. Please pick other dates or another room or bed.', 'hostelmate-hbook' );
+			case self::GUEST_MIN_STAY:
+				/* translators: %d: number of nights */
+				return __( 'For these dates this room needs a stay of at least %d nights. Please pick other dates.', 'hostelmate-hbook' );
+			case self::GUEST_MAX_STAY:
+				/* translators: %d: number of nights */
+				return __( 'For these dates this room can be booked for at most %d nights. Please pick other dates.', 'hostelmate-hbook' );
 			case self::PRECHECK_REFUSED:
 				return __( 'A website booking was stopped before saving: HostelMate no longer had that room free.', 'hostelmate-hbook' );
 			case self::PRECHECK_SKIPPED:

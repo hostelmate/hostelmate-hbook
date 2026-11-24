@@ -57,11 +57,16 @@ final class Precheck {
 		foreach ( $need as $room => $count ) {
 			$r = $rooms[ $room ] ?? null;
 			if ( is_array( $r ) && ( ! $r['bookable'] || $r['restricted'] || $r['min_free'] < $count ) ) {
-				self::log( Messages::PRECHECK_REFUSED, $room, $stay['check_in'] . ' ' . $stay['check_out'] );
+				self::log( Messages::PRECHECK_REFUSED, $room, $stay['check_in'] . ' ' . $stay['check_out'] . ( '' === $r['rule'] ? '' : ' ' . $r['rule'] . ' ' . $r['nights'] ) );
+				$text = match ( $r['rule'] ) {
+					'min_stay' => sprintf( Messages::text( Messages::GUEST_MIN_STAY ), $r['nights'] ),
+					'max_stay' => sprintf( Messages::text( Messages::GUEST_MAX_STAY ), $r['nights'] ),
+					default    => Messages::text( Messages::GUEST_JUST_BOOKED ),
+				};
 				wp_send_json(
 					array(
 						'success'   => false,
-						'error_msg' => esc_html( Messages::text( Messages::GUEST_JUST_BOOKED ) ),
+						'error_msg' => esc_html( $text ),
 					)
 				);
 			}

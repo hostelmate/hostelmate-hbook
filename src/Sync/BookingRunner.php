@@ -85,6 +85,13 @@ final class BookingRunner {
 		$methods  = Settings::all()['payment_methods'];
 		$paid     = Occupancy::paid_needs_confirmation();
 
+		// Failing for 30 minutes (HostelMate down or answering errors), whatever the retry schedule: red alert.
+		foreach ( $store as $id => $row ) {
+			if ( BookingStore::PENDING === $row['state'] && $row['failing'] > 0 && time() - $row['failing'] >= Config::BOOKING_ALERT_AFTER ) {
+				Alerts::open( Messages::BOOKING_FAILED, Config::ALERT_LEVEL_RED, self::ref( $bookings[ $id ] ?? null, $id ) );
+			}
+		}
+
 		// Rows the plugin sent whose HBook row is gone entirely: deleted in HBook.
 		$sent_ids = array_keys( array_filter( $store, static fn( array $r ): bool => $r['sent']['created'] ) );
 		$existing = array_flip( Bookings::existing( $sent_ids ) );
@@ -105,7 +112,11 @@ final class BookingRunner {
 			if ( null !== $row && $row['next_try'] > time() ) {
 				continue;
 			}
-			$fingerprint = \HostelMate\HBook\Core\Ids::marker( $booking );
+			// A booking HostelMate refused (or that can't be sent) waits until something its plan depends on changes: the
+			// booking, its room match, the payment methods, HBook's confirmation setting, or the plugin itself (an update
+			// may fix the cause). Found live 2026-11-24: fixing the payment method, or matching the room as the alert
+			// says, left the booking stuck because only the booking was compared.
+			$fingerprint = \HostelMate\HBook\Core\Ids::marker( array( $booking, self::target( $targets, $booking ), $methods, $paid, Config::VERSION ) );
 			if ( null !== $row && in_array( $row['state'], array( BookingStore::REFUSED, BookingStore::FAILED ), true ) && $row['sent']['blocked'] === $fingerprint ) {
 				continue; // Waiting for the booking to change in HBook.
 			}
@@ -161,8 +172,7 @@ final class BookingRunner {
 			case BookingSender::DONE:
 				$sent['blocked'] = '';
 				BookingStore::save( $id, $token, $sent, BookingStore::SYNCED, 0, 0, '' );
-				Alerts::resolve( Messages::BOOKING_REFUSED, $ref );
-				Alerts::resolve( Messages::BOOKING_FAILED, $ref );
+				self::resolve_alerts( $ref );
 				return;
 			case BookingSender::REFUSED:
 				$sent['blocked'] = $fingerprint;
@@ -184,10 +194,6 @@ final class BookingRunner {
 				$waits = Config::BOOKING_RETRY_AFTER;
 				$wait  = $waits[ min( $attempts, count( $waits ) - 1 ) ];
 				BookingStore::save( $id, $token, $sent, BookingStore::PENDING, $attempts + 1, time() + $wait, $result['code'] );
-				$since = (int) ( $row['since'] ?? time() );
-				if ( time() - $since >= Config::BOOKING_ALERT_AFTER && $attempts > 0 ) {
-					Alerts::open( Messages::BOOKING_FAILED, Config::ALERT_LEVEL_RED, $ref );
-				}
 				Log::write( Config::LOG_LEVEL_WARN, Messages::BOOKING_RETRY, $id, null, $result['code'] );
 		}
 	}
@@ -213,9 +219,19 @@ final class BookingRunner {
 		if ( BookingStore::FAILED === $state ) {
 			Alerts::open( $code, Config::ALERT_LEVEL_RED, $ref );
 		} else {
-			foreach ( array( BookingPlanner::PROBLEM_NO_EMAIL, BookingPlanner::PROBLEM_UNMATCHED, BookingPlanner::PROBLEM_TOO_LONG, Messages::BOOKING_FAILED, Messages::BOOKING_REFUSED ) as $c ) {
-				Alerts::resolve( $c, $ref );
-			}
+			self::resolve_alerts( $ref );
+		}
+	}
+
+	/**
+	 * A booking that is now in step closes every alert about it (found live 2026-11-24: one sent after its room was
+	 * matched kept its "room not matched" alert, because the send path closed only two of them).
+	 *
+	 * @param string $ref The booking's reference.
+	 */
+	private static function resolve_alerts( string $ref ): void {
+		foreach ( array( BookingPlanner::PROBLEM_NO_EMAIL, BookingPlanner::PROBLEM_UNMATCHED, BookingPlanner::PROBLEM_TOO_LONG, Messages::BOOKING_FAILED, Messages::BOOKING_REFUSED ) as $code ) {
+			Alerts::resolve( $code, $ref );
 		}
 	}
 

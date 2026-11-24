@@ -31,8 +31,8 @@ final class Schemas {
 	private const MAX_STAY      = 10000;
 
 	/**
-	 * HostelMate's error code from an error body; 'invalid_<field>' for a field refusal
-	 * ({"channel": ["…"]}, the client API serializers' own shape); 'unknown' otherwise.
+	 * HostelMate's error code from an error body; 'invalid_<field>' (lowercase) for a field refusal
+	 * ({"channel": ["…"]}, {"paymentMethod": ["…"]}: the client API serializers' own shape); 'unknown' otherwise.
 	 *
 	 * @param array<mixed> $data Decoded body.
 	 */
@@ -42,8 +42,8 @@ final class Schemas {
 			return $code;
 		}
 		$field = array_key_first( $data );
-		if ( null === $code && is_string( $field ) && 1 === preg_match( '/^[a-z][a-z0-9_]{0,55}\z/', $field ) && is_array( $data[ $field ] ) ) {
-			return 'invalid_' . $field;
+		if ( null === $code && is_string( $field ) && 1 === preg_match( '/^[A-Za-z][A-Za-z0-9_]{0,55}\z/', $field ) && is_array( $data[ $field ] ) ) {
+			return 'invalid_' . strtolower( $field ); // A camelCase field (paymentMethod) gives invalid_paymentmethod.
 		}
 		return 'unknown';
 	}
@@ -326,7 +326,7 @@ final class Schemas {
 	 *
 	 * @param array<mixed> $data   Decoded body.
 	 * @param int          $nights Nights in the stay asked about (every room must list them all).
-	 * @return array<string, array{bookable: bool, restricted: bool, min_free: int}>|null
+	 * @return array<string, array{bookable: bool, restricted: bool, min_free: int, rule: string, nights: int}>|null
 	 */
 	public static function availability( array $data, int $nights ): ?array {
 		$rooms = $data['rooms'] ?? null;
@@ -348,10 +348,16 @@ final class Schemas {
 				}
 				$free = min( $free, $night['available_beds'] );
 			}
+			// A stay rule HostelMate names (availability.py:103-107): the guest is told which, not "just booked".
+			$rule                                  = is_array( $room['restriction'] ?? null ) ? ( $room['restriction']['code'] ?? '' ) : '';
+			$value                                 = is_array( $room['restriction'] ?? null ) ? ( $room['restriction']['value'] ?? null ) : null;
+			$known                                 = in_array( $rule, array( 'min_stay', 'max_stay' ), true ) && is_numeric( $value ) && (int) $value >= 1 && (int) $value <= self::MAX_STAY;
 			$out[ strtolower( $room['room_id'] ) ] = array(
 				'bookable'   => $room['bookable'],
 				'restricted' => null !== ( $room['restriction'] ?? null ),
 				'min_free'   => PHP_INT_MAX === $free ? 0 : $free,
+				'rule'       => $known ? (string) $rule : '',
+				'nights'     => $known ? (int) $value : 0,
 			);
 		}
 		return $out;

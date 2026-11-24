@@ -132,6 +132,7 @@ CREATE TABLE {$bookings} (
   claim_token char(32) NULL,
   claimed_until datetime NULL,
   updated_at datetime NOT NULL,
+  failing_since datetime NULL,
   PRIMARY KEY  (hbook_resa_id),
   UNIQUE KEY hm_booking_id (hm_booking_id),
   KEY state_next (state,next_try_at)

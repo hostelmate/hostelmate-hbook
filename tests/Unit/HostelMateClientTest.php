@@ -181,12 +181,31 @@ final class HostelMateClientTest extends TestCase {
 	public function test_field_refusals_name_the_field(): void {
 		self::answer( 400, array( 'channel' => array( 'not one of this property\'s sources' ) ) );
 		$this->assertSame( 'invalid_channel', Client::property()->code );
+		self::answer( 400, array( 'paymentMethod' => array( '"Venmo" is not one of this property\'s payment methods' ) ) );
+		$this->assertSame( 'invalid_paymentmethod', Client::property()->code );
 		self::answer( 400, array( 'Bad Field' => array( 'x' ) ) );
 		$this->assertSame( 'unknown', Client::property()->code );
 		self::answer( 400, array( 'channel' => 'not a list' ) );
 		$this->assertSame( 'unknown', Client::property()->code );
 		self::answer( 400, array( 'code' => 'availability_conflict', 'channel' => array( 'x' ) ) );
 		$this->assertSame( 'availability_conflict', Client::property()->code );
+	}
+
+	public function test_availability_keeps_the_stay_rule_hostelmate_names(): void {
+		// Shape of the real answer (a test property, 2026-11-24): a min stay on Room 1, nothing on another room.
+		$room = static fn( string $id, bool $ok, $restriction, int $beds = 2 ): array => array( 'room_id' => $id, 'name' => 'x', 'bookable' => $ok, 'total' => null, 'nights' => array( array( 'date' => '2027-02-25', 'price' => 12300, 'available_beds' => $beds ), array( 'date' => '2027-02-26', 'price' => 12300, 'available_beds' => $beds ) ), 'restriction' => $restriction );
+		$a    = '11111111-1111-4111-8111-111111111111';
+		$b    = '11111111-2222-4333-8444-555555555555';
+		$got  = Schemas::availability( array( 'rooms' => array( $room( $a, false, array( 'code' => 'min_stay', 'value' => 3 ) ), $room( $b, true, null, 1 ) ) ), 2 );
+		$this->assertSame( array( 'bookable' => false, 'restricted' => true, 'min_free' => 2, 'rule' => 'min_stay', 'nights' => 3 ), $got[ $a ] );
+		$this->assertSame( array( 'bookable' => true, 'restricted' => false, 'min_free' => 1, 'rule' => '', 'nights' => 0 ), $got[ $b ] );
+		$this->assertSame( array( 'max_stay', 7 ), array_values( array_intersect_key( Schemas::availability( array( 'rooms' => array( $room( $a, false, array( 'code' => 'max_stay', 'value' => '7' ) ) ) ), 2 )[ $a ], array_flip( array( 'rule', 'nights' ) ) ) ) );
+		// A rule we don't know, or a bad value: still refused, with the general message.
+		foreach ( array( array( 'code' => 'closed_to_arrival' ), array( 'code' => 'min_stay', 'value' => 0 ), array( 'code' => 'min_stay', 'value' => '3 nights' ), array( 'code' => array() ) ) as $odd ) {
+			$r = Schemas::availability( array( 'rooms' => array( $room( $a, false, $odd ) ) ), 2 )[ $a ];
+			$this->assertSame( array( true, '', 0 ), array( $r['restricted'], $r['rule'], $r['nights'] ) );
+		}
+		$this->assertNull( Schemas::availability( array( 'rooms' => array( $room( $a, false, 'min_stay' ) ) ), 2 ) ); // Not an object: the whole answer is refused.
 	}
 
 	public function test_ok_status_with_a_wrong_body_is_invalid(): void {
