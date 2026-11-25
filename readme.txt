@@ -3,7 +3,7 @@ Tags: hostel, booking, availability, prices, reservations
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.2
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,10 @@ Every other request carries your API key and the plugin's version number.
 This service is provided by HostelMate: [customer agreement](https://hostelmate.co/customer-agreement), [privacy policy](https://hostelmate.co/privacy-policy).
 
 == Changelog ==
+= 1.1.1 =
+* Matching rooms: a HostelMate bed already picked for another website room or bed is greyed out, with the name of the row that has it. Beds of one website room are only offered in the HostelMate room its other beds use. Several website rooms can still share a HostelMate whole room.
+* If a save is refused, you stay on the matching step with your choices on screen, and a bed picked twice names every row that has it. Before, a refused save during setup could jump to step 3, without the table.
+
 = 1.1.0 =
 * Guided setup in four steps: connect, match rooms, check, go live. Until you go live, the plugin has one menu item.
 * Going live needs at least one matched room. Every other checklist item is a warning you can accept with a tick.

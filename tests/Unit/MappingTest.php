@@ -131,6 +131,68 @@ final class MappingTest extends TestCase {
 		$this->assertContains( Messages::MAP_SPLIT_ACCOM, self::codes( $split ) );
 	}
 
+	public function test_a_shared_bed_is_one_problem_naming_every_unit_on_it(): void {
+		$bed74   = self::bed( self::DORM, 74 );
+		$mapping = array(
+			self::DORM => array(
+				array( 'accom' => 74, 'num' => 1, 'bed' => $bed74 ),
+				array( 'accom' => 76, 'num' => 1, 'bed' => $bed74 ),
+				array( 'accom' => 171, 'num' => 5, 'bed' => $bed74 ),
+				array( 'accom' => 10, 'num' => 1, 'bed' => self::bed( self::DORM, 6 ) ),
+			),
+		);
+		$twice = array_values( array_filter( Mapping::problems( $mapping, self::property(), self::units() ), static fn( array $p ): bool => Messages::MAP_BED_TWICE === $p['code'] ) );
+		$this->assertCount( 1, $twice, 'three units on one bed: one problem, not two' );
+		$this->assertSame( Mapping::LEVEL_ERROR, $twice[0]['level'] );
+		$this->assertSame( array( 'bed' => $bed74, 'units' => array( '74:1', '76:1', '171:5' ) ), Mapping::parse_bed_ref( $twice[0]['ref'] ), 'the first unit is named too' );
+
+		// Two beds shared: two problems.
+		$mapping[ self::DORM ][] = array( 'accom' => 63, 'num' => 1, 'bed' => self::bed( self::DORM, 6 ) );
+		$this->assertSame( 2, count( array_keys( self::codes( $mapping ), Messages::MAP_BED_TWICE, true ) ) );
+		$this->assertSame( array(), Mapping::get(), 'nothing saved' );
+		Mapping::save( $mapping, self::property(), self::units() );
+		$this->assertSame( array(), Mapping::get(), 'nothing saved' );
+	}
+
+	public function test_a_whole_room_can_be_picked_by_several_units(): void {
+		// The save allows it (the free count is capped by HostelMate's answer, Sync\BlockPlanner), so the page must too.
+		$mapping = array( self::GARDEN => array( array( 'accom' => 600, 'num' => 1, 'bed' => '' ), array( 'accom' => 171, 'num' => 5, 'bed' => '' ) ) );
+		$this->assertSame( array(), Mapping::save( $mapping, self::property(), self::units() ) );
+	}
+
+	public function test_a_split_room_is_one_problem(): void {
+		$units        = self::units();
+		$units[171]   = array( 'id' => 171, 'title' => 'Ocean', 'name' => 'Ocean', 'units' => array( 1, 2, 3 ) );
+		$mapping      = array(
+			self::DORM => array( array( 'accom' => 171, 'num' => 1, 'bed' => self::bed( self::DORM, 74 ) ) ),
+			self::CAFE => array( array( 'accom' => 171, 'num' => 2, 'bed' => self::bed( self::CAFE, 1 ) ) ),
+			self::GARDEN => array( array( 'accom' => 171, 'num' => 3, 'bed' => '' ) ),
+		);
+		$split = array_filter( Mapping::problems( $mapping, self::property(), $units ), static fn( array $p ): bool => Messages::MAP_SPLIT_ACCOM === $p['code'] );
+		$this->assertCount( 1, $split );
+		$this->assertSame( '171', array_values( $split )[0]['ref'] );
+	}
+
+	public function test_picks_round_trip_with_the_form(): void {
+		$picks = array(
+			'74:1'  => self::DORM . '|' . self::bed( self::DORM, 74 ),
+			'76:1'  => self::DORM . '|' . self::bed( self::DORM, 74 ), // A refused pick is kept as it was.
+			'600:1' => self::GARDEN . '|',
+		);
+		$this->assertEqualsCanonicalizing( $picks, Mapping::picks( Mapping::from_form( $picks ) ) );
+		$this->assertSame( array(), Mapping::picks( array() ) );
+	}
+
+	public function test_bed_refs_are_parsed_strictly(): void {
+		$bed = self::bed( self::DORM, 74 );
+		$this->assertNull( Mapping::parse_bed_ref( '74:1' ) );
+		$this->assertNull( Mapping::parse_bed_ref( 'bed:' . $bed . '=74:1' ), 'one unit is not shared' );
+		$this->assertNull( Mapping::parse_bed_ref( 'bed:' . $bed . '=74:1,x' ) );
+		$this->assertNull( Mapping::parse_bed_ref( 'bed:' . $bed . "=74:1,76:1\n" ) );
+		$this->assertNull( Mapping::parse_bed_ref( 'bed:nope=74:1,76:1' ) );
+		$this->assertSame( array( 'bed' => $bed, 'units' => array( '74:1', '76:1' ) ), Mapping::parse_bed_ref( 'bed:' . $bed . '=74:1,76:1' ) );
+	}
+
 	public function test_errors_block_the_save_warnings_do_not(): void {
 		$bed74 = self::bed( self::DORM, 74 );
 		Mapping::save( array( self::DORM => array( array( 'accom' => 74, 'num' => 1, 'bed' => '' ) ) ), self::property(), self::units() );

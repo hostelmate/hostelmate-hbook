@@ -108,9 +108,18 @@ final class Actions {
 		if ( ! is_array( $property ) ) {
 			return array( Messages::CONNECT_FIRST );
 		}
-		$issues = Mapping::save( Mapping::from_form( $input['mapping'] ?? null ), $property, Units::all() );
-		set_transient( Config::TRANSIENT_ISSUES . get_current_user_id(), $issues, 120 );
-		$errors = array_filter( $issues, static fn( array $i ): bool => Mapping::LEVEL_ERROR === $i['level'] );
+		$mapping = Mapping::from_form( $input['mapping'] ?? null );
+		$issues  = Mapping::save( $mapping, $property, Units::all() );
+		$errors  = array_filter( $issues, static fn( array $i ): bool => Mapping::LEVEL_ERROR === $i['level'] );
+		// Refused: the page shows the owner's own picks again (nothing was saved), so they fix one row instead of redoing all.
+		set_transient(
+			Config::TRANSIENT_ISSUES . get_current_user_id(),
+			array(
+				'issues' => $issues,
+				'picks'  => array() === $errors ? null : Mapping::picks( $mapping ),
+			),
+			120
+		);
 		if ( array() === $errors ) {
 			// Setup step 3 needs a check that ran after this (Admin\Setup::finished).
 			State::set( 'rooms_saved_at', time() );

@@ -270,7 +270,7 @@ final class Messages {
 			case self::MAP_UNKNOWN_BED:
 				return __( 'This bed is not in the chosen HostelMate room.', 'hostelmate-hbook' );
 			case self::MAP_BED_TWICE:
-				return __( 'This HostelMate bed is matched to two website rooms or beds. Each HostelMate bed can be matched once.', 'hostelmate-hbook' );
+				return __( 'This HostelMate bed is matched to more than one website room or bed. Each HostelMate bed can be matched once.', 'hostelmate-hbook' );
 			case self::MAP_NO_CHANNEL_ID:
 				return __( 'HostelMate would refuse website bookings for this room: it isn\'t set up for bookings from outside HostelMate yet. Ask HostelMate support to set it up.', 'hostelmate-hbook' );
 			case self::MAP_FAKE_NUMBERS:

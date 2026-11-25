@@ -21,6 +21,9 @@ final class Mapping {
 	public const LEVEL_ERROR = 'error';
 	public const LEVEL_WARN  = 'warning';
 
+	/** A MAP_BED_TWICE problem's ref: "bed:<bed id>=<accom:num>,<accom:num>…" (parse_bed_ref()). */
+	private const BED_REF = 'bed:';
+
 	/**
 	 * The stored mapping, shape-checked (wrong entries are dropped, never guessed).
 	 *
@@ -99,9 +102,10 @@ final class Mapping {
 			}
 		}
 		$out        = array();
-		$beds_used  = array();
+		$beds_used  = array(); // HostelMate bed id → every unit matched to it, in mapping order.
 		$units_used = array();
 		$accom_room = array();
+		$split      = array(); // Accommodations already reported as split: once each.
 
 		foreach ( $mapping as $room_id => $list ) {
 			$room = $rooms[ $room_id ] ?? null;
@@ -121,8 +125,9 @@ final class Mapping {
 				}
 				$units_used[ $key ] = true;
 
-				if ( isset( $accom_room[ $unit['accom'] ] ) && $accom_room[ $unit['accom'] ] !== $room_id ) {
-					$out[] = self::issue( self::LEVEL_ERROR, Messages::MAP_SPLIT_ACCOM, (string) $unit['accom'] );
+				if ( isset( $accom_room[ $unit['accom'] ] ) && $accom_room[ $unit['accom'] ] !== $room_id && ! isset( $split[ $unit['accom'] ] ) ) {
+					$out[]                   = self::issue( self::LEVEL_ERROR, Messages::MAP_SPLIT_ACCOM, (string) $unit['accom'] );
+					$split[ $unit['accom'] ] = true;
 				}
 				$accom_room[ $unit['accom'] ] = $room_id;
 
@@ -136,17 +141,53 @@ final class Mapping {
 					$out[] = self::issue( self::LEVEL_ERROR, Messages::MAP_BED_REQUIRED, $key );
 				} elseif ( ! in_array( $unit['bed'], $bed_ids, true ) ) {
 					$out[] = self::issue( self::LEVEL_ERROR, Messages::MAP_UNKNOWN_BED, $key );
-				} elseif ( isset( $beds_used[ $unit['bed'] ] ) ) {
-					$out[] = self::issue( self::LEVEL_ERROR, Messages::MAP_BED_TWICE, $key );
 				} else {
-					$beds_used[ $unit['bed'] ] = true;
+					$beds_used[ $unit['bed'] ][] = $key;
 				}
 			}
 			if ( array() !== $list ) {
 				$out = array_merge( $out, self::room_warnings( $room ) );
 			}
 		}
+		// One problem per shared bed, naming every unit on it (the owner sees all of them, not just the later ones).
+		foreach ( $beds_used as $bed => $keys ) {
+			if ( count( $keys ) > 1 ) {
+				$out[] = self::issue( self::LEVEL_ERROR, Messages::MAP_BED_TWICE, self::BED_REF . $bed . '=' . implode( ',', $keys ) );
+			}
+		}
 		return $out;
+	}
+
+	/**
+	 * A mapping as the Rooms form shows it: "accom:num" → "roomId|bedId". Pure.
+	 *
+	 * @param array<string, list<array{accom: int, num: int, bed: string}>> $mapping HostelMate room id → units.
+	 * @return array<string, string>
+	 */
+	public static function picks( array $mapping ): array {
+		$out = array();
+		foreach ( $mapping as $room_id => $list ) {
+			foreach ( $list as $unit ) {
+				$out[ $unit['accom'] . ':' . $unit['num'] ] = $room_id . '|' . $unit['bed'];
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * A MAP_BED_TWICE reference → the bed id and the units on it, or null for any other reference.
+	 *
+	 * @param string $ref A problem's ref.
+	 * @return array{bed: string, units: list<string>}|null
+	 */
+	public static function parse_bed_ref( string $ref ): ?array {
+		if ( 1 !== preg_match( '/^' . preg_quote( self::BED_REF, '/' ) . '([0-9a-f-]{36})=(\d+:\d+(?:,\d+:\d+)+)\z/', $ref, $m ) ) {
+			return null;
+		}
+		return array(
+			'bed'   => $m[1],
+			'units' => explode( ',', $m[2] ),
+		);
 	}
 
 	/**

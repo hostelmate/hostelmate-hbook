@@ -16,7 +16,7 @@ final class Config {
 
 	public const SLUG        = 'hostelmate-hbook';
 	public const MENU_SLUG   = 'hostelmate-hbook';
-	public const VERSION     = '1.1.0';
+	public const VERSION     = '1.1.1';
 	public const TEXT_DOMAIN = 'hostelmate-hbook';
 
 	/** Who may see and use the plugin's screens and actions. */

@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace HostelMate\HBook\Admin;
 
 use HostelMate\HBook\Config;
+use HostelMate\HBook\Messages;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -82,6 +83,11 @@ final class ActionRouter {
 			$args['page'] = Config::PAGE_OVERVIEW;
 			if ( in_array( $action, array( Config::ACTION_CHECK_NOW, Config::ACTION_FX_AGREE ), true ) ) {
 				$args['step'] = Setup::CHECK;
+			}
+			// A refused room save goes back to the table (with the owner's picks and the problems), even when
+			// rooms saved earlier would otherwise make step 3 the current one.
+			if ( Config::ACTION_SAVE_MAPPING === $action && in_array( Messages::MAPPING_NOT_SAVED, $codes, true ) ) {
+				$args['step'] = Setup::ROOMS;
 			}
 		}
 		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );

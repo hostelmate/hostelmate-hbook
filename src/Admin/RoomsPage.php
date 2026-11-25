@@ -45,9 +45,10 @@ final class RoomsPage {
 
 		$units   = Units::all();
 		$mapping = Mapping::get();
-		$chosen  = self::chosen( $mapping );
-		self::issues( $mapping, $property, $units );
-		$suggested = array() === $mapping;
+		$refused = self::issues( $mapping, $property, $units );
+		// What the rows show: the picks of a save just refused (nothing was saved), else what is saved, else a guess.
+		$chosen    = $refused ?? Mapping::picks( $mapping );
+		$suggested = null === $refused && array() === $mapping;
 		if ( $suggested ) {
 			$chosen = Mapping::suggest( $property, $units );
 		}
@@ -64,11 +65,21 @@ final class RoomsPage {
 		echo '<p><strong>' . esc_html( sprintf( __( '%1$d of %2$d matched', 'hostelmate-hbook' ), $matched, $total ) ) . '</strong>';
 		if ( $suggested ) {
 			echo ' · ' . esc_html__( 'suggested from the names, not saved yet', 'hostelmate-hbook' );
+		} elseif ( null !== $refused ) {
+			echo ' · ' . esc_html__( 'your choices, not saved yet', 'hostelmate-hbook' );
 		}
 		echo '</p>';
+		echo '<p>' . esc_html__( 'Each HostelMate bed can be picked for one website room or bed only, and all beds of one website room go to the same HostelMate room. A choice that would break this is greyed out: to free a HostelMate bed, set the row that has it to "Not in HostelMate".', 'hostelmate-hbook' ) . '</p>';
 
+		// The script (assets/rooms.js) greys out choices the save would refuse, and says why; without it, the save still refuses them.
+		wp_enqueue_script( 'hostelmate-hbook-rooms', plugins_url( 'assets/rooms.js', HOSTELMATE_HBOOK_FILE ), array(), Config::VERSION, true );
 		View::form_open( Config::ACTION_SAVE_MAPPING );
-		echo '<table class="widefat striped"><thead><tr><th scope="col">' . esc_html__( 'On your website (HBook)', 'hostelmate-hbook' ) . '</th><th scope="col">' . esc_html__( 'In HostelMate', 'hostelmate-hbook' ) . '</th></tr></thead><tbody>';
+		/* translators: %s: website rooms or beds, for example "Garden, Dorm · 2" */
+		$used_by = __( 'used by %s', 'hostelmate-hbook' );
+		/* translators: %s: website rooms or beds */
+		$also  = __( 'Also picked for %s. Each HostelMate bed can be picked once.', 'hostelmate-hbook' );
+		$split = __( 'The other beds of this website room are matched to a different HostelMate room. All beds of one website room go to the same HostelMate room.', 'hostelmate-hbook' );
+		echo '<table class="widefat striped" id="hm-map" data-used-by="' . esc_attr( $used_by ) . '" data-also="' . esc_attr( $also ) . '" data-split="' . esc_attr( $split ) . '"><thead><tr><th scope="col">' . esc_html__( 'On your website (HBook)', 'hostelmate-hbook' ) . '</th><th scope="col">' . esc_html__( 'In HostelMate', 'hostelmate-hbook' ) . '</th></tr></thead><tbody>';
 		$groups = self::options( $property );
 		foreach ( $units as $accom ) {
 			foreach ( $accom['units'] as $num ) {
@@ -76,7 +87,7 @@ final class RoomsPage {
 				$label = $accom['name'] . ( count( $accom['units'] ) > 1 ? ' · ' . $num : '' );
 				$value = $chosen[ $key ] ?? '';
 				echo '<tr><td><label for="hm-map-' . esc_attr( $key ) . '"><strong>' . esc_html( $label ) . '</strong></label></td><td>';
-				echo '<select id="hm-map-' . esc_attr( $key ) . '" name="mapping[' . esc_attr( $key ) . ']">';
+				echo '<select id="hm-map-' . esc_attr( $key ) . '" name="mapping[' . esc_attr( $key ) . ']" data-accom="' . esc_attr( (string) $accom['id'] ) . '" data-label="' . esc_attr( $label ) . '" aria-describedby="hm-map-note-' . esc_attr( $key ) . '">';
 				echo '<option value="">' . esc_html__( 'Not in HostelMate (keep HBook\'s own prices)', 'hostelmate-hbook' ) . '</option>';
 				foreach ( $groups as $room => $options ) {
 					echo '<optgroup label="' . esc_attr( $room ) . '">';
@@ -85,7 +96,7 @@ final class RoomsPage {
 					}
 					echo '</optgroup>';
 				}
-				echo '</select></td></tr>';
+				echo '</select><p class="description hm-map-note" id="hm-map-note-' . esc_attr( $key ) . '" role="status" hidden></p></td></tr>';
 			}
 		}
 		echo '</tbody></table>';
@@ -120,22 +131,6 @@ final class RoomsPage {
 	}
 
 	/**
-	 * The saved mapping as "accom:num" → "roomId|bedId".
-	 *
-	 * @param array<string, list<array{accom: int, num: int, bed: string}>> $mapping Saved mapping.
-	 * @return array<string, string>
-	 */
-	private static function chosen( array $mapping ): array {
-		$out = array();
-		foreach ( $mapping as $room_id => $list ) {
-			foreach ( $list as $unit ) {
-				$out[ $unit['accom'] . ':' . $unit['num'] ] = $room_id . '|' . $unit['bed'];
-			}
-		}
-		return $out;
-	}
-
-	/**
 	 * A problem's reference in words: a room's name instead of its id.
 	 *
 	 * @param string                                 $ref      "accom:num", an HBook room id, a HostelMate room id, or a name.
@@ -144,6 +139,19 @@ final class RoomsPage {
 	 * @param array<string, list<array{accom: int, num: int, bed: string}>> $mapping Saved mapping.
 	 */
 	private static function ref_name( string $ref, array $property, array $units, array $mapping ): string {
+		$shared = Mapping::parse_bed_ref( $ref );
+		if ( null !== $shared ) {
+			// "Room 1 · B2: Garden, Dorm · 2".
+			$bed = $shared['bed'];
+			foreach ( (array) ( $property['rooms'] ?? array() ) as $room ) {
+				foreach ( (array) ( $room['beds'] ?? array() ) as $b ) {
+					if ( ( $b['id'] ?? '' ) === $shared['bed'] ) {
+						$bed = $room['name'] . ' · ' . ( '' !== $b['name'] ? $b['name'] : __( 'unnamed bed', 'hostelmate-hbook' ) );
+					}
+				}
+			}
+			return $bed . ': ' . implode( ', ', array_map( fn( string $k ): string => self::ref_name( $k, $property, $units, $mapping ), $shared['units'] ) );
+		}
 		if ( 1 === preg_match( '/^(\d+):(\d+)$/', $ref, $m ) ) {
 			$accom = $units[ (int) $m[1] ] ?? null;
 			if ( null === $accom ) {
@@ -174,17 +182,27 @@ final class RoomsPage {
 	}
 
 	/**
-	 * Problems from the last save (if any), else the problems of what is saved now.
+	 * Problems from the last save (if any), else the problems of what is saved now. Returns the
+	 * picks of a save that was just refused (to show again), or null.
 	 *
 	 * @param array<string, list<array{accom: int, num: int, bed: string}>> $mapping  Saved mapping.
 	 * @param array<string, mixed>                                          $property Normalised /property answer.
 	 * @param array<int, array{name: string, units: list<int>}>             $units    HBook units.
+	 * @return array<string, string>|null "accom:num" → "roomId|bedId", or null if no save was just refused.
 	 */
-	private static function issues( array $mapping, array $property, array $units ): void {
-		$key    = Config::TRANSIENT_ISSUES . get_current_user_id();
-		$issues = get_transient( $key );
+	private static function issues( array $mapping, array $property, array $units ): ?array {
+		$key  = Config::TRANSIENT_ISSUES . get_current_user_id();
+		$last = get_transient( $key );
 		delete_transient( $key );
-		if ( ! is_array( $issues ) ) {
+		$issues = is_array( $last ) && is_array( $last['issues'] ?? null ) ? $last['issues'] : null;
+		$picks  = null;
+		if ( null !== $issues && is_array( $last['picks'] ?? null ) ) {
+			// Only well-formed "accom:num" → "roomId|bedId" pairs, as the form sends them.
+			$picks = Mapping::picks( Mapping::from_form( $last['picks'] ) );
+			// Names of matched rooms that are gone come from what the owner picked, not from what is saved.
+			$mapping = Mapping::from_form( $picks );
+		}
+		if ( null === $issues ) {
 			$issues = Mapping::problems( $mapping, $property, $units );
 		}
 		foreach ( $issues as $issue ) {
@@ -192,5 +210,6 @@ final class RoomsPage {
 				View::notice( Mapping::LEVEL_ERROR === ( $issue['level'] ?? '' ) ? 'error' : 'warning', Messages::text( $issue['code'] ) . ' (' . self::ref_name( $issue['ref'], $property, $units, $mapping ) . ')' );
 			}
 		}
+		return $picks;
 	}
 }
