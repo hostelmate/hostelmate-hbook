@@ -28,6 +28,7 @@ final class SettingsPage {
 		View::action_notices();
 
 		self::connection();
+		CurrencyView::settings_section();
 
 		View::form_open( Config::ACTION_SAVE_SETTINGS );
 

@@ -206,12 +206,17 @@ final class Setup {
 		if ( ! $fresh || ! is_array( $p ) || $failed ) {
 			if ( $failed ) {
 				echo '<div class="notice notice-error inline"><p><strong>' . esc_html__( 'The check stopped:', 'hostelmate-hbook' ) . '</strong> ' . esc_html( Messages::text( $last['code'] ) ) . '</p>';
-				$property = State::get( 'property' );
-				$hm       = is_array( $property ) ? strtoupper( (string) ( $property['currency'] ?? '' ) ) : '';
-				if ( Messages::SYNC_CURRENCY === $last['code'] && '' !== $hm && Options::currency() === $hm ) {
+				$property      = State::get( 'property' );
+				$hm            = is_array( $property ) ? strtoupper( (string) ( $property['currency'] ?? '' ) ) : '';
+				$currency_stop = in_array( $last['code'], array( Messages::SYNC_CURRENCY, Messages::FX_PAIR_CHANGED ), true );
+				if ( $currency_stop && '' !== $hm && Options::currency() === $hm ) {
 					/* translators: %s: currency code */
 					echo '<p>' . esc_html( sprintf( __( 'Both use %s now. Run the check again.', 'hostelmate-hbook' ), $hm ) ) . '</p></div>';
-				} elseif ( Messages::SYNC_CURRENCY === $last['code'] ) {
+				} elseif ( $currency_stop && CurrencyView::needed() ) {
+					/* translators: 1: HBook currency, 2: HostelMate currency */
+					echo '<p>' . esc_html( sprintf( __( 'Your website\'s prices are in %1$s, and HostelMate\'s are in %2$s. Convert them below, or set the same currency in HostelMate\'s property settings (or in HBook) and run the check again.', 'hostelmate-hbook' ), Options::currency(), $hm ) ) . '</p></div>';
+					CurrencyView::offer();
+				} elseif ( $currency_stop ) {
 					/* translators: 1: HBook currency, 2: HostelMate currency */
 					echo '<p>' . esc_html( sprintf( __( 'Your website\'s prices are in %1$s, and HostelMate\'s are in %2$s. Set the same currency in HostelMate\'s property settings (or in HBook), then run the check again.', 'hostelmate-hbook' ), '' !== Options::currency() ? Options::currency() : '?', is_array( $property ) ? strtoupper( (string) ( $property['currency'] ?? '?' ) ) : '?' ) ) . '</p></div>';
 				} else {
@@ -224,6 +229,7 @@ final class Setup {
 			}
 			echo '<h3>' . esc_html__( 'The check before that found:', 'hostelmate-hbook' ) . '</h3>';
 		}
+		CurrencyView::rate_line();
 		OverviewPage::preview_summary( $p );
 		echo '<div>';
 		View::link_button( View::page_url( Config::PAGE_OVERVIEW, array( 'step' => self::LIVE ) ), __( 'Continue', 'hostelmate-hbook' ) );

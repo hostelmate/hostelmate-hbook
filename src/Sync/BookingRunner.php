@@ -27,6 +27,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * @phpstan-import-type Booking from \HostelMate\HBook\Types
  * @phpstan-import-type Sent from \HostelMate\HBook\Types
+ * @phpstan-import-type FxPair from \HostelMate\HBook\Sync\Fx
  */
 final class BookingRunner {
 
@@ -66,12 +67,23 @@ final class BookingRunner {
 	 * @param int $budget Seconds this run may take.
 	 */
 	public static function run( int $budget = Config::BOOKING_RUN_SECONDS ): int {
-		// Different currencies: wait (the bookings stay unsent and go once they match), never send wrong amounts.
-		if ( Config::MODE_LIVE !== Settings::mode() || ! SyncRunner::currency_ok() || ! Db::lock( Config::LOCK_BOOKINGS ) ) {
+		if ( Config::MODE_LIVE !== Settings::mode() ) {
+			return 0;
+		}
+		// Different currencies: converted at the agreed rate, or wait (the bookings stay unsent and go once they match
+		// or conversion is agreed), never send wrong amounts. Same currency: nothing about conversion runs.
+		$fx = null;
+		if ( ! SyncRunner::currency_ok() ) {
+			$fx = SyncRunner::booking_fx();
+			if ( null === $fx ) {
+				return 0;
+			}
+		}
+		if ( ! Db::lock( Config::LOCK_BOOKINGS ) ) {
 			return 0;
 		}
 		try {
-			return self::run_locked( time() + max( 1, $budget ) );
+			return self::run_locked( time() + max( 1, $budget ), $fx );
 		} finally {
 			Db::unlock( Config::LOCK_BOOKINGS );
 		}
@@ -80,15 +92,17 @@ final class BookingRunner {
 	/**
 	 * Everything after the lock.
 	 *
-	 * @param int $deadline Unix time to stop starting new bookings.
+	 * @param int         $deadline Unix time to stop starting new bookings.
+	 * @param FxPair|null $fx       The rate new bookings are converted with (null = same currency).
 	 */
-	private static function run_locked( int $deadline ): int {
+	private static function run_locked( int $deadline, ?array $fx ): int {
 		$today    = Clock::today( Clock::site_zone() );
 		$bookings = Bookings::website_since( Clock::add_days( $today, -Config::BOOKING_LOOKBACK_DAYS ) );
 		$store    = BookingStore::all();
 		$targets  = self::targets();
 		$methods  = Settings::all()['payment_methods'];
 		$paid     = Occupancy::paid_needs_confirmation();
+		$hm_now   = SyncRunner::hm_currency();
 
 		// Failing for 30 minutes (HostelMate down or answering errors), whatever the retry schedule: red alert.
 		foreach ( $store as $id => $row ) {
@@ -121,12 +135,23 @@ final class BookingRunner {
 			// booking, its room match, the payment methods, HBook's confirmation setting, or the plugin itself (an update
 			// may fix the cause). Found live 2026-11-24: fixing the payment method, or matching the room as the alert
 			// says, left the booking stuck because only the booking was compared.
-			$fingerprint = \HostelMate\HBook\Core\Ids::marker( array( $booking, self::target( $targets, $booking ), $methods, $paid, Config::VERSION ) );
+			$sent_fx = null === $row ? null : $row['sent']['fx'];
+			$depends = array( $booking, self::target( $targets, $booking ), $methods, $paid, Config::VERSION );
+			if ( null !== $fx || null !== $sent_fx ) {
+				$depends[] = array( $fx, $hm_now ); // Converted: the rate and HostelMate's currency matter too.
+			}
+			$fingerprint = \HostelMate\HBook\Core\Ids::marker( $depends );
 			if ( null !== $row && in_array( $row['state'], array( BookingStore::REFUSED, BookingStore::FAILED ), true ) && $row['sent']['blocked'] === $fingerprint ) {
 				continue; // Waiting for the booking to change in HBook.
 			}
 			$sent = null === $row ? BookingPlanner::nothing_sent( \HostelMate\HBook\Core\Ids::uuid4() ) : $row['sent'];
-			$plan = BookingPlanner::plan( $booking, $sent, self::target( $targets, $booking ), $paid, $methods, $today );
+			$plan = null !== $sent_fx && $sent_fx['hm'] !== $hm_now
+				// Sent converted into a currency HostelMate no longer uses: its amounts can't be kept right by the plugin.
+				? array(
+					'ops'     => array(),
+					'problem' => Messages::FX_BOOKING_CURRENCY,
+				)
+				: BookingPlanner::plan( $booking, $sent, self::target( $targets, $booking ), $paid, $methods, $today, $fx );
 			if ( array() === $plan['ops'] && '' === $plan['problem'] ) {
 				if ( null !== $row && BookingStore::SYNCED !== $row['state'] ) {
 					self::save( $id, $sent, BookingStore::SYNCED, 0, 0, '', $booking );
@@ -147,7 +172,7 @@ final class BookingRunner {
 			$fresh = BookingStore::all()[ $id ]['sent'];
 			if ( ! $fresh['created'] && $fresh['uuid'] !== $sent['uuid'] ) {
 				$sent = $fresh;
-				$plan = BookingPlanner::plan( $booking, $sent, self::target( $targets, $booking ), $paid, $methods, $today );
+				$plan = BookingPlanner::plan( $booking, $sent, self::target( $targets, $booking ), $paid, $methods, $today, $fx );
 			}
 			$result = BookingSender::send( $id, $sent, $plan['ops'] );
 			++$touched;
@@ -236,7 +261,7 @@ final class BookingRunner {
 	 * @param string $ref The booking's reference.
 	 */
 	private static function resolve_alerts( string $ref ): void {
-		foreach ( array( BookingPlanner::PROBLEM_NO_EMAIL, BookingPlanner::PROBLEM_UNMATCHED, BookingPlanner::PROBLEM_TOO_LONG, Messages::BOOKING_FAILED, Messages::BOOKING_REFUSED ) as $code ) {
+		foreach ( array( BookingPlanner::PROBLEM_NO_EMAIL, BookingPlanner::PROBLEM_UNMATCHED, BookingPlanner::PROBLEM_TOO_LONG, BookingPlanner::PROBLEM_TOO_BIG, Messages::FX_BOOKING_CURRENCY, Messages::BOOKING_FAILED, Messages::BOOKING_REFUSED ) as $code ) {
 			Alerts::resolve( $code, $ref );
 		}
 	}

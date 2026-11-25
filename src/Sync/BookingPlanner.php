@@ -23,6 +23,7 @@ defined( 'ABSPATH' ) || exit;
  * @phpstan-import-type Sent from \HostelMate\HBook\Types
  * @phpstan-import-type Op from \HostelMate\HBook\Types
  * @phpstan-import-type Guest from \HostelMate\HBook\Types
+ * @phpstan-import-type FxPair from \HostelMate\HBook\Sync\Fx
  */
 final class BookingPlanner {
 
@@ -39,6 +40,7 @@ final class BookingPlanner {
 	public const PROBLEM_NO_EMAIL  = Messages::BOOKING_NO_EMAIL;
 	public const PROBLEM_UNMATCHED = Messages::BOOKING_UNMATCHED;
 	public const PROBLEM_TOO_LONG  = Messages::BOOKING_TOO_LONG;
+	public const PROBLEM_TOO_BIG   = Messages::FX_BOOKING_TOO_BIG;
 
 	/**
 	 * A fresh "nothing sent yet" record.
@@ -58,6 +60,7 @@ final class BookingPlanner {
 			'guest_hash' => '',
 			'payments'   => array(),
 			'blocked'    => '',
+			'fx'         => null,
 		);
 	}
 
@@ -68,9 +71,39 @@ final class BookingPlanner {
 	 * @param bool                             $paid_needs HBook's hb_resa_paid_has_confirmation.
 	 * @param array<string, string>            $methods   HBook gateway → HostelMate payment method.
 	 * @param string                           $today     Today: a stay that has already ended is never created (only kept up to date).
+	 * @param FxPair|null                      $fx        The rate a booking not yet sent is converted with (null: same currency, nothing converted).
+	 *                                                    One already sent keeps the rate it was first sent with.
 	 * @return array{ops: list<Op>, problem: string}
 	 */
-	public static function plan( ?array $booking, array $sent, ?array $target, bool $paid_needs, array $methods, string $today = '0000-00-00' ): array {
+	public static function plan( ?array $booking, array $sent, ?array $target, bool $paid_needs, array $methods, string $today = '0000-00-00', ?array $fx = null ): array {
+		$pair = $sent['created'] ? $sent['fx'] : $fx;
+		if ( null === $pair ) {
+			return self::plan_in( $booking, $sent, $target, $paid_needs, $methods, $today, null );
+		}
+		try {
+			return self::plan_in( $booking, $sent, $target, $paid_needs, $methods, $today, $pair );
+		} catch ( \OverflowException | \InvalidArgumentException $e ) {
+			// Converted, an amount is beyond what HostelMate accepts: never sent cut or wrapped, entered by hand.
+			return array(
+				'ops'     => array(),
+				'problem' => self::PROBLEM_TOO_BIG,
+			);
+		}
+	}
+
+	/**
+	 * plan() with the pair decided.
+	 *
+	 * @param Booking|null                          $booking    The booking.
+	 * @param Sent                                  $sent       What was sent.
+	 * @param array{room: string, bed: string}|null $target     Target.
+	 * @param bool                                  $paid_needs HBook setting.
+	 * @param array<string, string>                 $methods    Gateway → method.
+	 * @param string                                $today      Today.
+	 * @param FxPair|null                           $pair       Conversion (null = none).
+	 * @return array{ops: list<Op>, problem: string}
+	 */
+	private static function plan_in( ?array $booking, array $sent, ?array $target, bool $paid_needs, array $methods, string $today, ?array $pair ): array {
 		$wanted = StatusRules::wanted( null === $booking ? null : $booking['status'], $paid_needs );
 		$ops    = array();
 
@@ -79,7 +112,7 @@ final class BookingPlanner {
 				$ops[] = self::op( self::SET_STATUS, array( 'status' => StatusRules::CANCELLED ) );
 			}
 			if ( $sent['created'] && null !== $booking ) {
-				$ops = array_merge( $ops, self::payment_ops( $booking, $sent, $methods ) );
+				$ops = array_merge( $ops, self::payment_ops( $booking, $sent, $methods, $pair ) );
 			}
 			return array(
 				'ops'     => $ops,
@@ -105,7 +138,7 @@ final class BookingPlanner {
 				'problem' => self::PROBLEM_NO_EMAIL,
 			);
 		}
-		$nights = self::nights( $booking );
+		$nights = null === $pair ? self::nights( $booking ) : self::converted_nights( $booking, $pair );
 		if ( array() === $nights || count( $nights ) > Config::HM_MAX_NIGHTS ) {
 			return array(
 				'ops'     => array(),
@@ -121,8 +154,9 @@ final class BookingPlanner {
 					'room'    => $target['room'],
 					'nights'  => $nights,
 					'guest'   => $guest,
-					'notes'   => self::notes( $booking ),
+					'notes'   => self::notes( $booking, $pair ),
 					'channel' => Config::HM_CHANNEL,
+					'fx'      => $pair,
 				)
 			);
 			$sent  = array(
@@ -132,6 +166,7 @@ final class BookingPlanner {
 				'nights'     => $nights,
 				'status'     => StatusRules::RESERVED,
 				'guest_hash' => self::guest_hash( $guest ),
+				'fx'         => $pair,
 			) + $sent;
 		}
 		if ( $nights !== $sent['nights'] ) {
@@ -161,7 +196,7 @@ final class BookingPlanner {
 			);
 		}
 		return array(
-			'ops'     => array_merge( $ops, self::payment_ops( $booking, $sent, $methods ) ),
+			'ops'     => array_merge( $ops, self::payment_ops( $booking, $sent, $methods, $pair ) ),
 			'problem' => '',
 		);
 	}
@@ -184,6 +219,25 @@ final class BookingPlanner {
 	}
 
 	/**
+	 * The nights in HostelMate's currency: the HBook total converted once at the booking's rate, then spread as
+	 * nights() does, so they always add up to exactly the converted total.
+	 *
+	 * @param Booking $booking The booking.
+	 * @param FxPair  $pair    Its rate.
+	 * @return array<string, int>
+	 * @throws \OverflowException A night above HostelMate's limit.
+	 */
+	private static function converted_nights( array $booking, array $pair ): array {
+		$nights = self::nights( array( 'total' => Fx::to_hostelmate( $booking['total'], $pair ) ) + $booking );
+		foreach ( $nights as $amount ) {
+			if ( $amount > Config::HM_NIGHT_MAX_MINOR ) {
+				throw new \OverflowException( 'Night above HostelMate\'s limit.' );
+			}
+		}
+		return $nights;
+	}
+
+	/**
 	 * Wanted vs sent, one HostelMate payment per HBook entry (Bookings::payments): a positive entry is
 	 * income ('p<id>'), a negative one a refund ('p<id>r', outgoing; the sign is in the ref, so an id HBook
 	 * reuses after a delete never turns income into a refund). New ones are added; one whose amount
@@ -193,17 +247,26 @@ final class BookingPlanner {
 	 * @param Booking               $booking The booking.
 	 * @param Sent                  $sent    What was sent.
 	 * @param array<string, string> $methods Gateway → method.
+	 * @param FxPair|null           $pair    The booking's rate: each payment converted on its own (null = none).
 	 * @return list<Op>
+	 * @throws \OverflowException A payment above HostelMate's limit once converted.
 	 */
-	private static function payment_ops( array $booking, array $sent, array $methods ): array {
+	private static function payment_ops( array $booking, array $sent, array $methods, ?array $pair = null ): array {
 		$wanted = array();
 		foreach ( $booking['payments'] as $p ) {
 			$method = $methods[ in_array( $p['gateway'], array( 'stripe', 'paypal' ), true ) ? $p['gateway'] : 'other' ] ?? 'Cash';
 			$ref    = 'p' . $p['ref'];
-			if ( $p['amount'] > 0 ) {
-				$wanted[ $ref ] = array( $p['amount'], 'income', $method );
-			} elseif ( $p['amount'] < 0 ) {
-				$wanted[ $ref . 'r' ] = array( -$p['amount'], 'outgoing', $method );
+			$amount = $p['amount'];
+			if ( null !== $pair && 0 !== $amount ) {
+				$amount = Fx::to_hostelmate( $amount, $pair );
+				if ( abs( $amount ) > Config::HM_PAYMENT_MAX_MINOR ) {
+					throw new \OverflowException( 'Payment above HostelMate\'s limit.' );
+				}
+			}
+			if ( $amount > 0 ) {
+				$wanted[ $ref ] = array( $amount, 'income', $method );
+			} elseif ( $amount < 0 ) {
+				$wanted[ $ref . 'r' ] = array( -$amount, 'outgoing', $method );
 			}
 		}
 		$ops = array();
@@ -287,13 +350,28 @@ final class BookingPlanner {
 	}
 
 	/**
-	 * Notes on the HostelMate booking: the HBook number and the guest count, no free text.
+	 * Notes on the HostelMate booking: the HBook number and the guest count, no free text. Converted, also the
+	 * website's own total and the rate used, so every amount can be traced.
 	 *
-	 * @param Booking $booking The booking.
+	 * @param Booking     $booking The booking.
+	 * @param FxPair|null $pair    The booking's rate (null = none).
 	 */
-	private static function notes( array $booking ): string {
+	private static function notes( array $booking, ?array $pair = null ): string {
 		/* translators: 1: HBook booking number, 2: number of guests */
-		return sprintf( __( 'Website booking (HBook #%1$s) · %2$d guests', 'hostelmate-hbook' ), $booking['number'], $booking['guests'] );
+		$notes = sprintf( __( 'Website booking (HBook #%1$s) · %2$d guests', 'hostelmate-hbook' ), $booking['number'], $booking['guests'] );
+		if ( null === $pair ) {
+			return $notes;
+		}
+		return $notes . ' · ' . sprintf( // HostelMate strips line breaks from notes (seen live 2026-11-25).
+			/* translators: 1: website currency, 2: total in it, 3: HostelMate currency, 4: total in it, 5: rate, 6: date of the rate */
+			__( 'Website price in %1$s: total %2$s %1$s = %4$s %3$s (1 %3$s = %5$s %1$s, HostelMate rate of %6$s)', 'hostelmate-hbook' ),
+			$pair['web'],
+			Money::to_decimal( $booking['total'] ),
+			$pair['hm'],
+			Money::to_decimal( Fx::to_hostelmate( $booking['total'], $pair ) ),
+			Fx::shown_rate( $pair ),
+			gmdate( 'Y-m-d', $pair['refreshed'] )
+		);
 	}
 
 	/**

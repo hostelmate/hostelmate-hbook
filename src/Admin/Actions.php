@@ -179,6 +179,80 @@ final class Actions {
 	}
 
 	/**
+	 * Convert currencies: the owner agrees, today's rate is stored, and a check runs at once so the converted prices
+	 * are seen (written only when live, as any check).
+	 *
+	 * @param array<string, mixed> $input Unused.
+	 * @return list<string>
+	 */
+	public static function fx_agree( array $input ): array { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- every action takes the same argument.
+		if ( ! Secret::has() ) {
+			return array( Messages::CONNECT_FIRST );
+		}
+		$code = \HostelMate\HBook\Sync\Fx::agree( \HostelMate\HBook\Sync\SyncRunner::hm_currency(), \HostelMate\HBook\HBook\Options::currency(), get_current_user_id(), time() );
+		if ( Messages::FX_AGREED !== $code ) {
+			return array( $code );
+		}
+		if ( Config::MODE_LIVE === Settings::mode() ) {
+			// Converting re-prices every matched night at once (found live 2026-11-25: USD → MXN is ×19, so the brake held
+			// it and the owner had to say yes twice). Agreeing is that yes: the brake is skipped for the next 10 minutes,
+			// as for "Use the new rate" and a held change.
+			State::set( 'brake_override_until', time() + 600 );
+		}
+		$run = \HostelMate\HBook\Sync\SyncRunner::run( true );
+		\HostelMate\HBook\Sync\BookingRunner::run();
+		return array( Messages::FX_AGREED, $run );
+	}
+
+	/**
+	 * Stop converting (ticked): back to waiting while the currencies differ.
+	 *
+	 * @param array<string, mixed> $input confirm.
+	 * @return list<string>
+	 */
+	public static function fx_stop( array $input ): array {
+		if ( '1' !== ( $input['confirm'] ?? null ) ) {
+			return array( Messages::CONFIRM_MISSING );
+		}
+		\HostelMate\HBook\Sync\Fx::stop();
+		return array( Messages::FX_STOPPED );
+	}
+
+	/**
+	 * Use a held exchange rate (moved over 10%): it is the owner's choice, so the brake is skipped for the next
+	 * 10 minutes, as for a held change, and a run starts now.
+	 *
+	 * @param array<string, mixed> $input Unused.
+	 * @return list<string>
+	 */
+	public static function fx_use_held( array $input ): array { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- every action takes the same argument.
+		$held = \HostelMate\HBook\Sync\Fx::held();
+		if ( null === $held ) {
+			return array( Messages::NOTHING_HELD );
+		}
+		\HostelMate\HBook\Sync\Fx::use_rate( $held, time() );
+		if ( Config::MODE_LIVE !== Settings::mode() ) {
+			return array( Messages::FX_RATE_USED );
+		}
+		State::set( 'brake_override_until', time() + 600 );
+		return array( Messages::FX_RATE_USED, \HostelMate\HBook\Sync\SyncRunner::run( false ) );
+	}
+
+	/**
+	 * Keep the rate in use instead of a held one.
+	 *
+	 * @param array<string, mixed> $input Unused.
+	 * @return list<string>
+	 */
+	public static function fx_keep_held( array $input ): array { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- every action takes the same argument.
+		if ( null === \HostelMate\HBook\Sync\Fx::held() ) {
+			return array( Messages::NOTHING_HELD );
+		}
+		\HostelMate\HBook\Sync\Fx::keep_rate();
+		return array( Messages::FX_RATE_KEPT );
+	}
+
+	/**
 	 * Apply a held change: the brake is skipped for the next 10 minutes, and a run starts now.
 	 *
 	 * @param array<string, mixed> $input Unused.

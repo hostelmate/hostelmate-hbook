@@ -166,6 +166,14 @@ final class Client {
 	}
 
 	/**
+	 * HostelMate's public exchange rates: the newest rate per currency (per 1 USD) and when HostelMate last
+	 * refreshed them. Used only while the two currencies differ (Sync\Fx).
+	 */
+	public static function currency_rates(): Result {
+		return Result::from_http( Http::rates_list(), static fn( array $d ): ?array => Schemas::currency_rates( $d ) );
+	}
+
+	/**
 	 * Ids go into URL paths: anything but a UUID is refused before any call.
 	 *
 	 * @param string $id Id.

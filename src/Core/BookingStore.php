@@ -150,6 +150,7 @@ final class BookingStore {
 			'guest_hash' => $str( 'guest_hash' ),
 			'payments'   => $payments,
 			'blocked'    => $str( 'blocked' ),
+			'fx'         => \HostelMate\HBook\Sync\Fx::stored_pair( $d['fx'] ?? null ),
 		);
 	}
 }

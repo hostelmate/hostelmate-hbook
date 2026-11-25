@@ -23,12 +23,13 @@ final class Schemas {
 
 	public const SELL_MODES = array( 'per_person', 'per_room', 'hybrid' );
 
-	private const MAX_ROOMS     = 500;
-	private const MAX_BEDS      = 1000;
-	private const MAX_NAME      = 200;
-	private const MAX_PRICE     = 999999999;
-	private const MAX_AVAILABLE = 10000;
-	private const MAX_STAY      = 10000;
+	private const MAX_ROOMS      = 500;
+	private const MAX_BEDS       = 1000;
+	private const MAX_NAME       = 200;
+	private const MAX_PRICE      = 999999999;
+	private const MAX_AVAILABLE  = 10000;
+	private const MAX_STAY       = 10000;
+	private const MAX_CURRENCIES = 1000;
 
 	/**
 	 * HostelMate's error code from an error body; 'invalid_<field>' (lowercase) for a field refusal
@@ -128,6 +129,71 @@ final class Schemas {
 			'currency'    => strtoupper( $data['currency'] ),
 			'rooms'       => $out_rooms,
 		);
+	}
+
+	/**
+	 * GET /api/v1/currency-rates/list (backend api/req/currency_rates.py, CurrencyRateSerializer): a list of
+	 * {id, base_currency, quote_currency, rate, fetched_at}, every row on USD. Normalised to the newest rate per
+	 * currency (the table may hold more than one row per pair, api/models.py:1091-1094) and HostelMate's last
+	 * refresh: the newest fetched_at in the whole list, since a rate that didn't change keeps its old date
+	 * (api/helpers/currency_rates.py:90-92). Any row that isn't exactly that makes the whole answer invalid.
+	 *
+	 * @param array<mixed> $data Decoded body.
+	 * @return array{refreshed: int, rates: array<string, string>}|null
+	 */
+	public static function currency_rates( array $data ): ?array {
+		if ( ! array_is_list( $data ) || array() === $data || count( $data ) > self::MAX_CURRENCIES ) {
+			return null;
+		}
+		$rates     = array();
+		$dates     = array();
+		$refreshed = 0;
+		foreach ( $data as $row ) {
+			if ( ! is_array( $row ) || 'USD' !== ( $row['base_currency'] ?? null ) || ! is_string( $row['quote_currency'] ?? null )
+				|| 1 !== preg_match( '/^[A-Z]{3}\z/', $row['quote_currency'] ) || null === \HostelMate\HBook\Sync\Fx::rate_e8( $row['rate'] ?? null ) ) {
+				return null;
+			}
+			$at = self::utc_time( $row['fetched_at'] ?? null );
+			if ( null === $at ) {
+				return null;
+			}
+			$quote = $row['quote_currency'];
+			if ( 'USD' === $quote ) {
+				if ( '1' !== rtrim( rtrim( (string) $row['rate'], '0' ), '.' ) ) {
+					return null; // USD against itself can only be 1.
+				}
+				continue;
+			}
+			if ( ! isset( $dates[ $quote ] ) || $at > $dates[ $quote ] ) {
+				$rates[ $quote ] = (string) $row['rate'];
+				$dates[ $quote ] = $at;
+			}
+			$refreshed = max( $refreshed, $at );
+		}
+		ksort( $rates );
+		return array(
+			'refreshed' => $refreshed,
+			'rates'     => $rates,
+		);
+	}
+
+	/**
+	 * An ISO 8601 time with a zone, as Django REST framework writes it ("2026-11-24T00:00:09Z", optional
+	 * fraction, "Z" or "+hh:mm") → Unix time; null for anything else.
+	 *
+	 * @param mixed $value Anything.
+	 */
+	private static function utc_time( $value ): ?int {
+		if ( ! is_string( $value ) || 1 !== preg_match( '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})\z/', $value ) ) {
+			return null;
+		}
+		try {
+			$time = new \DateTimeImmutable( $value );
+		} catch ( \Exception $e ) {
+			return null;
+		}
+		$unix = $time->getTimestamp();
+		return $unix > 0 ? $unix : null;
 	}
 
 	/**

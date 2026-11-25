@@ -174,6 +174,7 @@ final class BookingSender {
 			$sent['status']   = self::str( (array) $found->data, 'status' );
 			$sent['room']     = $room;
 			$sent['nights']   = array(); // Unknown: the nights fix follows on the next pass.
+			$sent['fx']       = Fx::stored_pair( $data['fx'] ?? null );
 			return Result::ok( array() );
 		}
 		if ( ! $result->is_ok() ) {
@@ -185,6 +186,7 @@ final class BookingSender {
 		$sent['room']       = $room;
 		$sent['bed']        = '';
 		$sent['guest_hash'] = BookingPlanner::guest_hash( $guest );
+		$sent['fx']         = Fx::stored_pair( $data['fx'] ?? null ); // Every later change of this booking uses this rate.
 		Log::write( Config::LOG_LEVEL_INFO, Messages::BOOKING_SENT, null, $room );
 
 		if ( count( array_unique( $nights ) ) <= 1 ) {
@@ -270,6 +272,9 @@ final class BookingSender {
 		// is three different keys, so the last change is applied, not replayed.
 		$before = $sent;
 		unset( $before['blocked'] );
+		if ( null === $before['fx'] ) {
+			unset( $before['fx'] ); // Same currency: the keys stay exactly what they were before conversion existed.
+		}
 		return Ids::idempotency_key( $sent['uuid'], (string) wp_json_encode( $parts ), (string) wp_json_encode( $before ) );
 	}
 

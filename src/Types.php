@@ -15,6 +15,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Shapes (see the file comment).
  *
+ * @phpstan-import-type FxPair from \HostelMate\HBook\Sync\Fx
  * @phpstan-type SeasonDate array{row_id: int, start: string, end: string, days: list<int>}
  * @phpstan-type Season array{id: int, name: string, priority: string, dates: list<SeasonDate>}
  * @phpstan-type Seasons array<int, Season>
@@ -34,7 +35,7 @@ defined( 'ABSPATH' ) || exit;
  * @phpstan-type BookingPayment array{ref: string, amount: int, gateway: string}
  * @phpstan-type Booking array{id: int, accom_id: int, accom_num: int, check_in: string, check_out: string, guests: int, status: string, total: int, number: string, guest: Guest, payments: list<BookingPayment>}
  * @phpstan-type SentPayment array{hm_id: string, amount: int}
- * @phpstan-type Sent array{uuid: string, created: bool, guest_id: string, status: string, room: string, bed: string, nights: array<string, int>, guest_hash: string, payments: array<string, SentPayment>, blocked: string}
+ * @phpstan-type Sent array{uuid: string, created: bool, guest_id: string, status: string, room: string, bed: string, nights: array<string, int>, guest_hash: string, payments: array<string, SentPayment>, blocked: string, fx: FxPair|null}
  * @phpstan-type Op array{op: string, data: array<string, mixed>}
  */
 final class Types {

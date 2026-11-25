@@ -38,6 +38,23 @@ final class GoLive {
 			? array_filter( Mapping::problems( $mapping, $property, Units::all() ), static fn( array $p ): bool => Mapping::LEVEL_ERROR === $p['level'] )
 			: array( 'no property' );
 		$ical     = Options::ical_calendar_count();
+		return array_merge(
+			self::base_items( $preview, $fresh, $mapping, $errors, $ical ),
+			\HostelMate\HBook\Admin\CurrencyView::checklist_items() // Only while the currencies differ.
+		);
+	}
+
+	/**
+	 * The items every site has.
+	 *
+	 * @param mixed        $preview The stored preview.
+	 * @param bool         $fresh   It is recent.
+	 * @param array<mixed> $mapping The matching.
+	 * @param array<mixed> $errors  Matching errors.
+	 * @param int          $ical    iCal calendars.
+	 * @return list<array{ok: bool, required: bool, text: string}>
+	 */
+	private static function base_items( $preview, bool $fresh, array $mapping, array $errors, int $ical ): array {
 		return array(
 			array(
 				'ok'       => array() !== $mapping && array() === $errors,
@@ -48,6 +65,11 @@ final class GoLive {
 				'ok'       => Secret::has() && time() - (int) State::get( 'last_fetch_ok', 0 ) < Config::PREVIEW_FRESH_FOR,
 				'required' => false,
 				'text'     => __( 'HostelMate answered in the last 30 minutes.', 'hostelmate-hbook' ),
+			),
+			array(
+				'ok'       => SyncRunner::zones_match(),
+				'required' => false,
+				'text'     => __( 'WordPress and HostelMate use the same time zone.', 'hostelmate-hbook' ),
 			),
 			array(
 				'ok'       => array() === Schema::problems(),

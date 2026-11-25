@@ -67,7 +67,44 @@ final class Http {
 
 		$url = self::base() . $path . ( array() === $query ? '' : '?' . http_build_query( $query, '', '&', PHP_QUERY_RFC3986 ) );
 		unset( $key );
+		return self::send( $url, $args );
+	}
 
+	/**
+	 * HostelMate's public exchange-rate list (backend api/req/currency_rates.py: no login). The only call outside the
+	 * client API: a fixed path on the same host, GET only, and the key is never sent with it. Called only while the
+	 * two currencies differ (Sync\Fx).
+	 */
+	public static function rates_list(): HttpResponse {
+		$base = self::base();
+		if ( ! str_ends_with( $base, Config::API_CLIENT_DIR ) ) {
+			return HttpResponse::failed( HttpResponse::ERR_BAD_PATH );
+		}
+		return self::send(
+			substr( $base, 0, -strlen( Config::API_CLIENT_DIR ) ) . Config::API_RATES_LIST_PATH,
+			array(
+				'method'              => 'GET',
+				'timeout'             => Config::HTTP_TIMEOUT,
+				'redirection'         => 0,
+				'sslverify'           => true,
+				'reject_unsafe_urls'  => true,
+				'limit_response_size' => Config::HTTP_MAX_BYTES,
+				'headers'             => array(
+					'Accept'           => 'application/json',
+					'User-Agent'       => 'HostelMate-HBook/' . Config::VERSION,
+					'X-Client-Version' => Config::VERSION,
+				),
+			)
+		);
+	}
+
+	/**
+	 * Sends one request and reads the answer under the rules above.
+	 *
+	 * @param string               $url  Full URL.
+	 * @param array<string, mixed> $args wp_remote_request() arguments.
+	 */
+	private static function send( string $url, array $args ): HttpResponse {
 		$response = wp_remote_request( $url, $args );
 		unset( $args );
 

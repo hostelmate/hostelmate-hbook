@@ -179,7 +179,7 @@ final class PricePlanner {
 	 * @param array<string, int>                                   $last   Last known prices.
 	 * @return array<string, int>
 	 */
-	private static function new_last_prices( array $nights, array $hm, array $last ): array {
+	public static function new_last_prices( array $nights, array $hm, array $last ): array {
 		foreach ( $hm as $room => $by_night ) {
 			foreach ( $nights as $night ) {
 				$price = $by_night[ $night ]['price'] ?? null;

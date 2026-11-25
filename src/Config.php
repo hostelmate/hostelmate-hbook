@@ -16,7 +16,7 @@ final class Config {
 
 	public const SLUG        = 'hostelmate-hbook';
 	public const MENU_SLUG   = 'hostelmate-hbook';
-	public const VERSION     = '1.0.0';
+	public const VERSION     = '1.1.0';
 	public const TEXT_DOMAIN = 'hostelmate-hbook';
 
 	/** Who may see and use the plugin's screens and actions. */
@@ -34,9 +34,10 @@ final class Config {
 	public const OPT_MAPPING  = 'hostelmate_hbook_mapping';
 	public const OPT_STATE    = 'hostelmate_hbook_state';
 	public const OPT_ALERTS   = 'hostelmate_hbook_alerts';
+	public const OPT_FX       = 'hostelmate_hbook_fx'; // Only ever written while the two currencies differ (Sync\Fx).
 
 	/** @var list<string> */
-	public const OPTIONS = array( self::OPT_SETTINGS, self::OPT_KEY, self::OPT_MAPPING, self::OPT_STATE, self::OPT_ALERTS );
+	public const OPTIONS = array( self::OPT_SETTINGS, self::OPT_KEY, self::OPT_MAPPING, self::OPT_STATE, self::OPT_ALERTS, self::OPT_FX );
 
 	// Own tables, without the WordPress prefix.
 	public const TABLE_OWNED    = 'hostelmate_owned';
@@ -73,14 +74,16 @@ final class Config {
 	public const LOG_LEVEL_ERROR = 'error';
 
 	// HostelMate API. The base can only be changed from wp-config.php (our tests), never from the screens.
-	public const API_BASE          = 'https://api.hostelmate.co/api/v1/client/';
-	public const API_BASE_CONSTANT = 'HOSTELMATE_HBOOK_API_BASE';
-	public const API_KEY_CONSTANT  = 'HOSTELMATE_HBOOK_API_KEY';
-	public const API_KEY_MIN_LEN   = 20;
-	public const API_KEY_MAX_LEN   = 200;
-	public const HTTP_TIMEOUT      = 15;
-	public const HTTP_MAX_BYTES    = 8388608; // 8 MB.
-	public const HTTP_JSON_DEPTH   = 64;
+	public const API_BASE            = 'https://api.hostelmate.co/api/v1/client/';
+	public const API_BASE_CONSTANT   = 'HOSTELMATE_HBOOK_API_BASE';
+	public const API_CLIENT_DIR      = 'client/';              // The base ends with it; the rates list sits next to it.
+	public const API_RATES_LIST_PATH = 'currency-rates/list'; // Public, read-only (backend api/req/currency_rates.py).
+	public const API_KEY_CONSTANT    = 'HOSTELMATE_HBOOK_API_KEY';
+	public const API_KEY_MIN_LEN     = 20;
+	public const API_KEY_MAX_LEN     = 200;
+	public const HTTP_TIMEOUT        = 15;
+	public const HTTP_MAX_BYTES      = 8388608; // 8 MB.
+	public const HTTP_JSON_DEPTH     = 64;
 
 	/** Most nights one GET /rates call may cover (backend/api/client/utils.py:244-259). */
 	public const RATES_MAX_NIGHTS = 366;
@@ -133,6 +136,10 @@ final class Config {
 	public const ACTION_REMOVE_DATA   = 'remove_data';
 	public const ACTION_CANCEL_COPIES = 'cancel_copies';
 	public const ACTION_UNDO_COPIES   = 'undo_copies';
+	public const ACTION_FX_AGREE      = 'fx_agree';
+	public const ACTION_FX_STOP       = 'fx_stop';
+	public const ACTION_FX_USE_HELD   = 'fx_use_held';
+	public const ACTION_FX_KEEP_HELD  = 'fx_keep_held';
 
 	/** Problems from the last Rooms save, kept briefly for the page that follows. */
 	public const TRANSIENT_ISSUES = 'hostelmate_hbook_issues_';
@@ -170,6 +177,16 @@ final class Config {
 	public const HM_GUEST_PHONE_MAX    = 50;
 	public const HM_PAYMENT_NAME_MAX   = 200;
 	public const HM_MAX_NIGHTS         = 400;
+	public const HM_NIGHT_MAX_MINOR    = 999999999;   // 9,999,999.99 a night (backend api/client/constants.py:90).
+	public const HM_PAYMENT_MAX_MINOR  = 9999999999;  // 99,999,999.99 a payment (PAYMENT_MAX_AMOUNT).
+
+	// Currency conversion, only when HostelMate and HBook use different currencies (todo/hbook-plugin-currency-plan.md).
+	public const FX_IGNORE_PCT    = 1;      // A new rate that moved less than this is not used (prices don't shift daily).
+	public const FX_HOLD_PCT      = 10;     // One that moved more than this waits for the owner's OK.
+	public const FX_MAX_AGE       = 259200; // 72 h: HostelMate's last refresh older than this stops conversion.
+	public const FX_REFRESH_AFTER = 86400;  // Fetch again once HostelMate's last refresh is a day old...
+	public const FX_RETRY_AFTER   = 3600;   // ...and the last attempt is an hour old.
+	public const HBOOK_MAX_MINOR  = 99999999999999; // The largest amount HBook stores (its decimal columns: 14 digits, 2 after the point).
 
 	// Check before booking (plan 8).
 	public const PRECHECK_TIMEOUT      = 3;

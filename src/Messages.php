@@ -123,8 +123,24 @@ final class Messages {
 	public const MAP_HM_UNMATCHED      = 'map_hm_unmatched';
 	public const MAP_BROKEN            = 'map_broken';
 
+	// Currency conversion (only while the two currencies differ).
+	public const FX_AGREED           = 'fx_agreed';
+	public const FX_SAME             = 'fx_same';
+	public const FX_STOPPED          = 'fx_stopped';
+	public const FX_UNREACHABLE      = 'fx_unreachable';
+	public const FX_NO_RATE          = 'fx_no_rate';
+	public const FX_TOO_OLD          = 'fx_too_old';
+	public const FX_PAIR_CHANGED     = 'fx_pair_changed';
+	public const FX_HELD             = 'fx_held';
+	public const FX_RATE_USED        = 'fx_rate_used';
+	public const FX_RATE_KEPT        = 'fx_rate_kept';
+	public const FX_FETCH_FAILED     = 'fx_fetch_failed';
+	public const FX_TOO_BIG          = 'fx_too_big';
+	public const FX_BOOKING_TOO_BIG  = 'fx_booking_too_big';
+	public const FX_BOOKING_CURRENCY = 'fx_booking_currency';
+
 	/** @var list<string> Notice codes shown as success (the rest of NOTICE_CODES are errors). */
-	public const SUCCESS_CODES = array( self::CONNECTED, self::KEY_REMOVED, self::ROOMS_REFRESHED, self::SETTINGS_SAVED, self::MAPPING_SAVED, self::PREVIEW_READY, self::SYNC_APPLIED, self::SYNC_NO_CHANGE, self::GO_LIVE_DONE, self::RESUMED, self::HELD_APPLIED, self::DATA_REMOVED, self::COPIES_CANCELLED, self::COPIES_RESTORED );
+	public const SUCCESS_CODES = array( self::CONNECTED, self::KEY_REMOVED, self::ROOMS_REFRESHED, self::SETTINGS_SAVED, self::MAPPING_SAVED, self::PREVIEW_READY, self::SYNC_APPLIED, self::SYNC_NO_CHANGE, self::GO_LIVE_DONE, self::RESUMED, self::HELD_APPLIED, self::DATA_REMOVED, self::COPIES_CANCELLED, self::COPIES_RESTORED, self::FX_AGREED, self::FX_STOPPED, self::FX_RATE_USED, self::FX_RATE_KEPT );
 
 	/** @var list<string> Codes that may be shown after an action (anything else in the URL is ignored). */
 	public const NOTICE_CODES = array(
@@ -173,6 +189,14 @@ final class Messages {
 		self::SYNC_WRONG_PROPERTY,
 		self::NOT_PAUSED,
 		self::NOTHING_HELD,
+		self::FX_AGREED,
+		self::FX_SAME,
+		self::FX_STOPPED,
+		self::FX_UNREACHABLE,
+		self::FX_NO_RATE,
+		self::FX_TOO_OLD,
+		self::FX_RATE_USED,
+		self::FX_RATE_KEPT,
 	);
 
 	/**
@@ -259,10 +283,38 @@ final class Messages {
 				return __( 'No rooms are matched yet.', 'hostelmate-hbook' );
 			case self::SYNC_CURRENCY:
 				return __( 'HostelMate and HBook use different currencies. Nothing is changed on your website, and website bookings wait, until they match.', 'hostelmate-hbook' );
+			case self::FX_AGREED:
+				return __( 'Currencies are converted now, at HostelMate\'s daily rate.', 'hostelmate-hbook' );
+			case self::FX_SAME:
+				return __( 'HostelMate and your website use the same currency, so nothing needs converting.', 'hostelmate-hbook' );
+			case self::FX_STOPPED:
+				return __( 'Currencies are no longer converted. While they differ, nothing is changed on your website and website bookings wait.', 'hostelmate-hbook' );
+			case self::FX_UNREACHABLE:
+				return __( 'Couldn\'t get today\'s exchange rate from HostelMate. Nothing was changed. Try again in a few minutes.', 'hostelmate-hbook' );
+			case self::FX_NO_RATE:
+				return __( 'HostelMate has no exchange rate for one of the two currencies, so they can\'t be converted. Use the same currency in HostelMate and HBook.', 'hostelmate-hbook' );
+			case self::FX_TOO_OLD:
+				return __( 'HostelMate\'s exchange rate is more than 3 days old, so nothing is changed on your website and website bookings wait until it is updated. Please contact HostelMate support.', 'hostelmate-hbook' );
+			case self::FX_PAIR_CHANGED:
+				return __( 'The currency changed in HostelMate or in HBook since you agreed to convert. Nothing is changed on your website and website bookings wait. Agree to the new currencies, or stop converting.', 'hostelmate-hbook' );
+			case self::FX_HELD:
+				return __( 'The exchange rate moved by more than 10%. Your website keeps the old rate until you choose.', 'hostelmate-hbook' );
+			case self::FX_RATE_USED:
+				return __( 'A new exchange rate is used for prices and new bookings.', 'hostelmate-hbook' );
+			case self::FX_RATE_KEPT:
+				return __( 'The old exchange rate is kept.', 'hostelmate-hbook' );
+			case self::FX_TOO_BIG:
+				return __( 'A converted price is larger than HBook can store, so nothing was changed on your website. Check the prices in HostelMate.', 'hostelmate-hbook' );
+			case self::FX_BOOKING_TOO_BIG:
+				return __( 'Converted into HostelMate\'s currency, this website booking\'s amounts are larger than HostelMate accepts, so it wasn\'t sent. Enter it in HostelMate by hand.', 'hostelmate-hbook' );
+			case self::FX_BOOKING_CURRENCY:
+				return __( 'This website booking was sent to HostelMate in a currency HostelMate no longer uses, so the plugin no longer changes it. Update it in HostelMate by hand.', 'hostelmate-hbook' );
+			case self::FX_FETCH_FAILED:
+				return __( 'Couldn\'t get the exchange rate from HostelMate. The stored rate is used meanwhile.', 'hostelmate-hbook' );
 			case self::SYNC_HBOOK_UNTESTED:
 				return __( 'HBook was updated to a version this plugin hasn\'t been tested on yet. Its tables still look the same, so everything keeps running. Tell HostelMate support if anything looks wrong.', 'hostelmate-hbook' );
 			case self::SYNC_TIMEZONE:
-				return __( 'WordPress and HostelMate are set to different time zones, so "today" may differ. Set the same zone in both.', 'hostelmate-hbook' );
+				return __( 'WordPress and HostelMate use different time zones. When HostelMate\'s date is already the next day, your website can\'t sell the night that is still "tonight" for it. Use the same zone in both: WordPress\'s is in Settings → General; to set or change HostelMate\'s, ask HostelMate support.', 'hostelmate-hbook' );
 			case self::SYNC_PLAN:
 				return __( 'Your HostelMate plan doesn\'t include the API (it is on Lite), so nothing is kept in step. Change the plan in HostelMate.', 'hostelmate-hbook' );
 			case self::SYNC_KEY_REFUSED:

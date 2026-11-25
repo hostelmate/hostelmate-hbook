@@ -36,6 +36,8 @@ final class WpStub {
 	public static array $mails = array();
 	/** wp_doing_cron() answer. */
 	public static bool $cron = false;
+	/** The site's time zone (wp_timezone()). */
+	public static string $zone = 'UTC';
 
 	public static function reset(): void {
 		self::$options       = array( 'admin_email' => 'owner@example.com' );
@@ -48,6 +50,7 @@ final class WpStub {
 		self::$queue         = array();
 		self::$mails         = array();
 		self::$cron          = false;
+		self::$zone          = 'UTC';
 		$GLOBALS['wpdb']     = new FakeWpdb();
 	}
 }
@@ -122,7 +125,10 @@ function wp_remote_retrieve_body( $response ) {
 	return $response['body'] ?? '';
 }
 function wp_timezone(): DateTimeZone {
-	return new DateTimeZone( 'UTC' );
+	return new DateTimeZone( WpStub::$zone );
+}
+function wp_timezone_string(): string {
+	return WpStub::$zone;
 }
 function get_bloginfo( string $show = '' ): string {
 	return 'version' === $show ? '7.1.5' : 'Test Hostel';
@@ -147,4 +153,7 @@ function wp_mail( $to, string $subject, string $body ): bool {
 function remove_accents( string $text ): string {
 	$t = iconv( 'UTF-8', 'ASCII//TRANSLIT//IGNORE', $text );
 	return false === $t ? $text : $t;
+}
+function get_current_user_id(): int {
+	return 1;
 }

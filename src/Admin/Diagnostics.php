@@ -36,7 +36,8 @@ final class Diagnostics {
 			'plugin ' . Config::VERSION . ' · tables v' . (int) State::get( 'db_version', 0 ),
 			'wordpress ' . get_bloginfo( 'version' ) . ' · php ' . PHP_VERSION . ' · hbook ' . Schema::version() . ( Schema::is_tested_version() ? ' (tested)' : ' (not tested)' ),
 			'mode ' . Settings::mode() . ' · key ' . ( Secret::from_constant() ? 'in wp-config' : ( Secret::has() ? 'stored' : 'none' ) ) . ' · check before booking ' . ( Settings::precheck_on() ? 'on' : 'off' ),
-			'currency hbook ' . Options::currency() . ' · ical calendars ' . Options::ical_calendar_count() . ' · zone ' . wp_timezone_string(),
+			'currency hbook ' . Options::currency() . ' · ical calendars ' . Options::ical_calendar_count() . ' · zone ' . wp_timezone_string() . ' · hostelmate zone ' . self::hm_zone(),
+			CurrencyView::diagnostics_line(), // '' while the currencies match: left out below.
 			'matched units ' . array_sum( array_map( 'count', Mapping::get() ) ),
 			'last run ' . ( is_array( $last ) ? gmdate( 'Y-m-d H:i', (int) $last['at'] ) . 'Z ' . (string) $last['code'] : 'never' ) . ' · last ok ' . ( is_int( State::get( 'last_ok' ) ) ? gmdate( 'Y-m-d H:i', (int) State::get( 'last_ok' ) ) . 'Z' : 'never' ),
 			'next sync ' . self::next( Config::CRON_SYNC ) . ' · next bookings ' . self::next( Config::CRON_BOOKINGS ) . ' · wp-cron ' . ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ? 'disabled (server cron?)' : 'on visits' ),
@@ -48,7 +49,14 @@ final class Diagnostics {
 		foreach ( Log::recent( 50 ) as $row ) {
 			$lines[] = $row['at'] . 'Z ' . $row['level'] . ' ' . $row['code'] . ( null !== $row['resa_id'] ? ' #' . $row['resa_id'] : '' );
 		}
-		return implode( "\n", $lines );
+		return implode( "\n", array_filter( $lines, static fn( string $line ): bool => '' !== $line ) );
+	}
+
+	/** HostelMate's zone as stored, or "blank (UTC)". */
+	private static function hm_zone(): string {
+		$property = State::get( 'property' );
+		$zone     = is_array( $property ) ? (string) ( $property['timezone'] ?? '' ) : '';
+		return '' === $zone ? 'blank (UTC)' : $zone;
 	}
 
 	/**

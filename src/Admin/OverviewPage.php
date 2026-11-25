@@ -40,6 +40,7 @@ final class OverviewPage {
 			return;
 		}
 		self::held_change();
+		CurrencyView::held();
 		self::attention();
 		self::last_check();
 		self::copies_tool();
@@ -71,6 +72,7 @@ final class OverviewPage {
 			echo '<p>' . esc_html( sprintf( __( 'HostelMate property: %s', 'hostelmate-hbook' ), (string) ( $property['name'] ?? '' ) ) ) . '</p>';
 		}
 		self::matched_line( is_array( $property ) ? $property : null );
+		CurrencyView::rate_line();
 		$last = State::get( 'last_ok' );
 		if ( is_int( $last ) ) {
 			/* translators: %s: date and time */

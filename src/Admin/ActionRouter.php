@@ -38,6 +38,10 @@ final class ActionRouter {
 			Config::ACTION_REMOVE_DATA   => array( array( Actions::class, 'remove_data' ), array( 'confirm' ), Config::PAGE_SETTINGS ),
 			Config::ACTION_CANCEL_COPIES => array( array( Actions::class, 'cancel_copies' ), array( 'confirm' ), Config::PAGE_OVERVIEW ),
 			Config::ACTION_UNDO_COPIES   => array( array( Actions::class, 'undo_copies' ), array(), Config::PAGE_OVERVIEW ),
+			Config::ACTION_FX_AGREE      => array( array( Actions::class, 'fx_agree' ), array(), Config::PAGE_OVERVIEW ),
+			Config::ACTION_FX_STOP       => array( array( Actions::class, 'fx_stop' ), array( 'confirm' ), Config::PAGE_SETTINGS ),
+			Config::ACTION_FX_USE_HELD   => array( array( Actions::class, 'fx_use_held' ), array(), Config::PAGE_OVERVIEW ),
+			Config::ACTION_FX_KEEP_HELD  => array( array( Actions::class, 'fx_keep_held' ), array(), Config::PAGE_OVERVIEW ),
 		);
 	}
 
@@ -76,7 +80,7 @@ final class ActionRouter {
 		// and a check stays on step 3 so its result is seen before moving on.
 		if ( ! Setup::done() ) {
 			$args['page'] = Config::PAGE_OVERVIEW;
-			if ( Config::ACTION_CHECK_NOW === $action ) {
+			if ( in_array( $action, array( Config::ACTION_CHECK_NOW, Config::ACTION_FX_AGREE ), true ) ) {
 				$args['step'] = Setup::CHECK;
 			}
 		}
